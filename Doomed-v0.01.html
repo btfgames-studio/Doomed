@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Doom Office: E1M1 Hangar Open-Space</title>
+    <!-- Tailwind CSS pour les interfaces HUD et menus -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Moteur 3D -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Police Retro Pixel -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .pixel-font {
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        #game-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Effet Viseur HUD Retro */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 16px;
+            height: 16px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255, 235, 59, 0.85);
+            box-shadow: 0 0 4px #000;
+        }
+        #crosshair::before { top: 7px; left: 0; width: 16px; height: 2px; }
+        #crosshair::after { top: 0; left: 7px; width: 2px; height: 16px; }
+
+        /* Style HUD Doom Bottom */
+        #hud-bar {
+            background: linear-gradient(180deg, #3a3d40 0%, #1a1c1e 100%);
+            border-top: 4px solid #5a5e63;
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.8);
+        }
+
+        .hud-panel {
+            background: #0f1113;
+            border: 2px solid #33383f;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.9);
+        }
+
+        /* Animation flash lors des dégâts reçus */
+        #damage-flash {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(239, 68, 68, 0.35);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.1s ease-out;
+            z-index: 20;
+        }
+
+        /* Joystick virtuel mobile */
+        .touch-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            touch-action: manipulation;
+        }
+    </style>
+</head>
+<body class="select-none bg-black text-white">
+
+    <!-- Canvas principal Three.js -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Crosshair Viseur -->
+    <div id="crosshair"></div>
+
+    <!-- Flash Dégâts Subis -->
+    <div id="damage-flash"></div>
+
+    <!-- HUD Doom Style en Bas de l'Écran -->
+    <div id="hud-bar" class="fixed bottom-0 left-0 w-full h-24 md:h-28 z-30 flex items-center justify-between px-2 md:px-6">
+        
+        <!-- Bloc Gauche : Barre BURNOUT -->
+        <div class="hud-panel h-20 w-5/12 md:w-1/3 rounded-lg p-2 flex flex-col justify-between">
+            <div class="flex justify-between items-center">
+                <span class="pixel-font text-xs md:text-sm text-red-500 font-bold tracking-wider">BURNOUT</span>
+                <span id="burnout-value" class="pixel-font text-xs md:text-sm text-yellow-400">0%</span>
+            </div>
+            <!-- Progression de la barre de fatigue -->
+            <div class="w-full bg-gray-900 h-6 md:h-7 rounded border border-gray-700 overflow-hidden relative p-0.5">
+                <div id="burnout-fill" class="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-600 w-0 transition-all duration-200 rounded-sm"></div>
+                <div class="absolute inset-0 flex items-center justify-center text-[10px] md:text-xs pixel-font font-bold text-white drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,0.8)]">
+                    FATIGUE
+                </div>
+            </div>
+        </div>
+
+        <!-- Bloc Central : Visage Clark Kent -->
+        <div class="hud-panel h-20 w-24 md:w-28 rounded-lg flex flex-col items-center justify-center relative overflow-hidden bg-slate-900 border-2 border-yellow-600/50">
+            <canvas id="kent-face" width="80" height="80" class="w-16 h-16 object-contain"></canvas>
+            <span id="kent-status" class="text-[9px] pixel-font text-gray-300 mt-0.5">SEREIN</span>
+        </div>
+
+        <!-- Bloc Droite : Fléchettes & Statut Gobelins -->
+        <div class="hud-panel h-20 w-5/12 md:w-1/3 rounded-lg p-2 flex justify-around items-center">
+            <div class="text-center">
+                <div class="text-[10px] md:text-xs text-gray-400 uppercase font-semibold">Fléchettes</div>
+                <div id="ammo-count" class="pixel-font text-sm md:text-lg text-yellow-400 mt-1">∞</div>
+            </div>
+            <div class="h-10 w-[2px] bg-gray-800"></div>
+            <div class="text-center">
+                <div class="text-[10px] md:text-xs text-gray-400 uppercase font-semibold">Gobelins</div>
+                <div id="goblin-count" class="pixel-font text-sm md:text-lg text-green-400 mt-1">12/12</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contrôles Tactiles (Visibles sur Mobile) -->
+    <div id="mobile-controls" class="fixed inset-0 pointer-events-none z-40 hidden md:hidden">
+        <!-- Zone Joystick de déplacement -->
+        <div id="joystick-zone" class="absolute bottom-28 left-4 w-32 h-32 touch-btn pointer-events-auto rounded-full flex items-center justify-center">
+            <div id="joystick-knob" class="w-12 h-12 bg-white/40 rounded-full"></div>
+        </div>
+        <!-- Bouton Tir Nerf -->
+        <button id="mobile-fire-btn" class="absolute bottom-28 right-6 w-20 h-20 touch-btn bg-orange-500/50 active:bg-orange-600/80 rounded-full pointer-events-auto flex items-center justify-center font-bold text-lg pixel-font border-2 border-orange-300">
+            TIRER
+        </button>
+    </div>
+
+    <!-- Écran d'Accueil / Démarrage -->
+    <div id="start-screen" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 text-center">
+        <div class="max-w-2xl bg-slate-900 border-4 border-yellow-500 rounded-xl p-6 md:p-8 shadow-2xl">
+            <h1 class="pixel-font text-2xl md:text-4xl text-yellow-400 mb-2 leading-relaxed">DOOM OFFICE</h1>
+            <h2 class="text-lg md:text-xl text-red-500 font-bold mb-6">ÉPISODE 1 : E1M1 OPEN-SPACE</h2>
+            
+            <p class="text-gray-300 mb-4 text-sm md:text-base leading-relaxed">
+                Vous êtes <strong class="text-yellow-300">Clark Kent</strong>. C'est lundi matin et l'Open-Space est envahi par les <strong class="text-green-400">Gobelins de Bureau</strong> !
+            </p>
+            <p class="text-gray-300 mb-6 text-sm md:text-base leading-relaxed">
+                Armé de votre <strong class="text-orange-400">Fusil Nerf</strong>, traversez les rangées de bureaux, la zone zig-zag des serveurs et rejoignez l'ascenseur <strong class="text-green-400">EXIT</strong> sans atteindre le <strong>BURNOUT MAXIMAL</strong> !
+            </p>
+
+            <div class="bg-black/60 rounded-lg p-4 mb-6 text-left text-xs md:text-sm border border-gray-700 text-gray-300">
+                <div class="font-bold text-yellow-400 mb-2 uppercase pixel-font text-[11px]">Commandes :</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div>🎮 <strong>Déplacement :</strong> ZQSD / WASD / Flèches</div>
+                    <div>👀 <strong>Visée :</strong> Souris (Cliquer pour verrouiller)</div>
+                    <div>💥 <strong>Tirer :</strong> Clic Gauche / Espace</div>
+                    <div>📱 <strong>Mobile :</strong> Joystick & Bouton Tactile</div>
+                </div>
+            </div>
+
+            <button id="start-btn" class="pixel-font bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-black font-black py-4 px-8 rounded-lg shadow-lg transform active:scale-95 transition-all text-sm md:text-base">
+                LANCER LA JOURNÉE DE BOULOT
+            </button>
+        </div>
+    </div>
+
+    <!-- Écran Game Over (Burnout Full) -->
+    <div id="gameover-screen" class="fixed inset-0 bg-red-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 text-center hidden">
+        <div class="max-w-md bg-black border-4 border-red-600 rounded-xl p-6 md:p-8 shadow-2xl">
+            <h1 class="pixel-font text-2xl md:text-3xl text-red-500 mb-4 animate-pulse">BURNOUT MAXIMAL !</h1>
+            <p class="text-gray-300 mb-6 text-sm md:text-base">
+                Vous avez succombé aux MEP urgentes, au réseau pourri et à la pression du bureau... Clark a besoin de repos !
+            </p>
+            <button id="restart-btn" class="pixel-font bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg active:scale-95 transition-all text-xs md:text-sm">
+                REPRENDRE UNE TASSE DE CAFÉ (RETRY)
+            </button>
+        </div>
+    </div>
+
+    <!-- Écran Victoire (Sortie atteinte) -->
+    <div id="victory-screen" class="fixed inset-0 bg-emerald-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 text-center hidden">
+        <div class="max-w-md bg-black border-4 border-green-500 rounded-xl p-6 md:p-8 shadow-2xl">
+            <h1 class="pixel-font text-2xl md:text-3xl text-green-400 mb-2">E1M1 NETTOYÉ !</h1>
+            <h2 class="text-yellow-400 font-bold mb-4">JOURNÉE DE BOULOT TERMINÉE</h2>
+            <p class="text-gray-300 mb-6 text-sm md:text-base">
+                Vous avez nettoyé tout l'open-space à coups de fléchettes Nerf et atteint l'ascenseur de sortie !
+            </p>
+            <button id="victory-btn" class="pixel-font bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-lg shadow-lg active:scale-95 transition-all text-xs md:text-sm">
+                REJOUER L'OPEN-SPACE
+            </button>
+        </div>
+    </div>
+
+    <!-- LOGIQUE COMPLÈTE DU JEU -->
+    <script>
+        /* =========================================================================
+         * 1. SYNTHÉTISEUR AUDIO RETRO (Web Audio API)
+         * ========================================================================= */
+        class RetroAudio {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            // Bruit de tir du pistolet Nerf (Ressort / Pfft)
+            playShoot() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(450, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.12);
+                
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+
+            // Impact de ventouse Nerf sur mur
+            playPlop() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.08);
+                
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            // Gobelin touché par Nerf
+            playGoblinHit() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(300, this.ctx.currentTime + 0.15);
+                
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            // Attaque de boule de papier par un gobelin
+            playThrow() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.1);
+                
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            // Dégât reçu par le joueur (Augmentation du Burnout)
+            playHurt() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(60, this.ctx.currentTime + 0.2);
+                
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
+
+            // Fanfare de Victoire
+            playVictory() {
+                if (!this.ctx) return;
+                const notes = [261.63, 329.63, 392.00, 523.25];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime + idx * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.12 + 0.25);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.12);
+                    osc.stop(this.ctx.currentTime + idx * 0.12 + 0.25);
+                });
+            }
+
+            // Son Game Over
+            playGameOver() {
+                if (!this.ctx) return;
+                const notes = [200, 170, 140, 110];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime + idx * 0.2);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.2 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.2);
+                    osc.stop(this.ctx.currentTime + idx * 0.2 + 0.3);
+                });
+            }
+        }
+
+        const audio = new RetroAudio();
+
+        /* =========================================================================
+         * 2. DESSIN ET ANIMATION DU VISAGE DE CLARK KENT (HUD)
+         * ========================================================================= */
+        function drawKentFace(burnoutPercent) {
+            const canvas = document.getElementById('kent-face');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Fond HUD metallic
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, 0, w, h);
+
+            // Visage de Clark Kent
+            ctx.fillStyle = '#fbcfe8'; // Peau
+            ctx.beginPath();
+            ctx.roundRect(20, 20, 40, 45, 8);
+            ctx.fill();
+
+            // Cheveux Noirs avec mèche distinctive
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(40, 22, 22, Math.PI, 0);
+            ctx.fill();
+            // Mèche Superman/Clark Kent sur le front
+            ctx.beginPath();
+            ctx.moveTo(40, 20);
+            ctx.quadraticCurveTo(45, 30, 38, 34);
+            ctx.quadraticCurveTo(36, 28, 40, 20);
+            ctx.fill();
+
+            // Lunettes Noires carrées de Clark Kent
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3;
+            // Verre Gauche
+            ctx.strokeRect(26, 32, 11, 10);
+            // Verre Droit
+            ctx.strokeRect(43, 32, 11, 10);
+            // Pont de lunettes
+            ctx.beginPath();
+            ctx.moveTo(37, 36);
+            ctx.lineTo(43, 36);
+            ctx.stroke();
+
+            // Yeux derrière les lunettes
+            ctx.fillStyle = '#0284c7';
+            let eyeY = 37;
+            let eyeOffsetX = 0;
+
+            if (burnoutPercent > 50) {
+                eyeOffsetX = (Math.random() - 0.5) * 2; // Yeux frénétiques
+            }
+
+            if (burnoutPercent >= 100) {
+                // Yeux en X (Game Over)
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(29, 34); ctx.lineTo(34, 40);
+                ctx.moveTo(34, 34); ctx.lineTo(29, 40);
+                ctx.moveTo(46, 34); ctx.lineTo(51, 40);
+                ctx.moveTo(51, 34); ctx.lineTo(46, 40);
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.arc(31 + eyeOffsetX, eyeY, 2.5, 0, Math.PI * 2);
+                ctx.arc(48 + eyeOffsetX, eyeY, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Costume et Cravate Rouge
+            ctx.fillStyle = '#1e3a8a'; // Veste bleue
+            ctx.fillRect(15, 62, 50, 18);
+            ctx.fillStyle = '#ffffff'; // Chemise blanche
+            ctx.beginPath();
+            ctx.moveTo(33, 62); ctx.lineTo(40, 75); ctx.lineTo(47, 62);
+            ctx.fill();
+            ctx.fillStyle = '#dc2626'; // Cravate rouge
+            ctx.beginPath();
+            ctx.moveTo(38, 62); ctx.lineTo(42, 62); ctx.lineTo(43, 78); ctx.lineTo(40, 80); ctx.lineTo(37, 78);
+            ctx.fill();
+
+            // Bouche et Gouttes de Sueur selon le niveau de BURNOUT
+            ctx.strokeStyle = '#881337';
+            ctx.lineWidth = 2;
+
+            const statusElem = document.getElementById('kent-status');
+
+            if (burnoutPercent < 25) {
+                // Calme & Serein
+                ctx.beginPath();
+                ctx.arc(40, 50, 5, 0.1, Math.PI - 0.1);
+                ctx.stroke();
+                statusElem.textContent = "SEREIN";
+                statusElem.className = "text-[9px] pixel-font text-green-400 mt-0.5";
+            } else if (burnoutPercent < 50) {
+                // Anxieux
+                ctx.beginPath();
+                ctx.moveTo(34, 52); ctx.lineTo(46, 52);
+                ctx.stroke();
+                // Une goutte de sueur
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath(); ctx.arc(22, 30, 2.5, 0, Math.PI*2); ctx.fill();
+                statusElem.textContent = "STRESSÉ";
+                statusElem.className = "text-[9px] pixel-font text-yellow-400 mt-0.5";
+            } else if (burnoutPercent < 75) {
+                // Très tendu
+                ctx.beginPath();
+                ctx.arc(40, 54, 4, Math.PI, 0);
+                ctx.stroke();
+                // Plusieurs gouttes de sueur
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath(); ctx.arc(22, 28, 3, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(58, 32, 2.5, 0, Math.PI*2); ctx.fill();
+                statusElem.textContent = "SURMENÉ";
+                statusElem.className = "text-[9px] pixel-font text-orange-400 mt-0.5";
+            } else {
+                // Panique totale / Game Over
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(40, 52, 6, 0, Math.PI * 2);
+                ctx.fill();
+                // Sueur abondante
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath(); ctx.arc(21, 26, 3.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(59, 28, 3.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(23, 38, 2.5, 0, Math.PI*2); ctx.fill();
+                statusElem.textContent = "BURNOUT !";
+                statusElem.className = "text-[9px] pixel-font text-red-500 animate-pulse mt-0.5";
+            }
+        }
+
+        /* =========================================================================
+         * 3. CARTE E1M1 & MOTEUR 3D THREE.JS
+         * ========================================================================= */
+
+        // Textes de bulles de BD imposés
+        const GOBLIN_SPEECH_OPTIONS = [
+            "réseau pourri",
+            "mep urgente",
+            "y'a pas d'UO",
+            "aller à utech"
+        ];
+
+        // Représentation Grille E1M1 (Open Space)
+        // 1: Mur Gris/Beige Bureau, 2: Baie Vitrée (Fenêtre ville), 3: Baie Serveurs Informatiques,
+        // 4: Mur d'Ascenseur Sortie (EXIT), 5: Bureau/PC, 6: Plante verte, 8: Spawn Gobelin, 9: Départ Joueur
+        const MAP_SIZE = 24;
+        const MAP_GRID = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,9,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // Octagone départ (Hangar E1M1)
+            [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1], // Couloir d'entrée
+            [1,1,1,1,1,1,0,1,1,1,2,2,2,2,2,2,2,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,5,8,0,5,0,8,5,0,0,0,2,1,1,1,1,1,1], // Grand Open-Space
+            [1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,6,0,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,5,0,8,5,0,8,5,0,0,0,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,5,8,0,5,0,8,5,0,6,0,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,3,3,3,0,3,3,3,3,3,3,1,1,1,1,1,1,1,1], // Zone Zig-Zag Serveurs
+            [1,1,1,1,1,1,3,8,0,0,0,0,0,8,3,3,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,3,3,3,3,3,3,0,3,3,3,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,3,8,0,0,0,0,0,8,3,3,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,3,3,3,0,3,3,3,3,3,3,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,4,0,4,1,1,1,1,1,1,1,1,1,1,1,1,1], // Salle de Sortie EXIT
+            [1,1,1,1,1,1,1,1,4,0,4,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        const TILE_SIZE = 4;
+
+        // Génération de textures procédurales pour le décor de bureau
+        function createOfficeTextures() {
+            // 1. Moquette de bureau quadrillée
+            const carpetCanvas = document.createElement('canvas');
+            carpetCanvas.width = 256; carpetCanvas.height = 256;
+            const cCtx = carpetCanvas.getContext('2d');
+            cCtx.fillStyle = '#2a343d'; cCtx.fillRect(0,0,256,256);
+            cCtx.strokeStyle = '#1e252c'; cCtx.lineWidth = 4;
+            for(let i=0; i<=256; i+=32) {
+                cCtx.beginPath(); cCtx.moveTo(i,0); cCtx.lineTo(i,256); cCtx.stroke();
+                cCtx.beginPath(); cCtx.moveTo(0,i); cCtx.lineTo(256,i); cCtx.stroke();
+            }
+            const carpetTexture = new THREE.CanvasTexture(carpetCanvas);
+            carpetTexture.wrapS = THREE.RepeatWrapping;
+            carpetTexture.wrapT = THREE.RepeatWrapping;
+
+            // 2. Faux-plafond avec dalles de néons
+            const ceilCanvas = document.createElement('canvas');
+            ceilCanvas.width = 256; ceilCanvas.height = 256;
+            const clCtx = ceilCanvas.getContext('2d');
+            clCtx.fillStyle = '#d1d5db'; clCtx.fillRect(0,0,256,256);
+            clCtx.strokeStyle = '#9ca3af'; clCtx.lineWidth = 4;
+            for(let i=0; i<=256; i+=64) {
+                clCtx.strokeRect(i, 0, 64, 256);
+                clCtx.strokeRect(0, i, 256, 64);
+            }
+            // Panneau néon lumineux au centre
+            clCtx.fillStyle = '#ffffff';
+            clCtx.fillRect(70, 70, 116, 116);
+            clCtx.strokeStyle = '#fef08a'; clCtx.lineWidth = 6;
+            clCtx.strokeRect(70, 70, 116, 116);
+
+            const ceilTexture = new THREE.CanvasTexture(ceilCanvas);
+            ceilTexture.wrapS = THREE.RepeatWrapping;
+            ceilTexture.wrapT = THREE.RepeatWrapping;
+
+            // 3. Mur gris/beige avec plinthes de bureau
+            const wallCanvas = document.createElement('canvas');
+            wallCanvas.width = 256; wallCanvas.height = 256;
+            const wCtx = wallCanvas.getContext('2d');
+            wCtx.fillStyle = '#94a3b8'; wCtx.fillRect(0,0,256,256);
+            wCtx.fillStyle = '#475569'; wCtx.fillRect(0,230,256,26); // Plinthe
+            wCtx.strokeStyle = '#cbd5e1'; wCtx.lineWidth = 2;
+            for(let i=0; i<256; i+=64) {
+                wCtx.beginPath(); wCtx.moveTo(i,0); wCtx.lineTo(i,230); wCtx.stroke();
+            }
+            const wallTexture = new THREE.CanvasTexture(wallCanvas);
+
+            // 4. Baies vitrées avec vue sur gratte-ciels
+            const winCanvas = document.createElement('canvas');
+            winCanvas.width = 256; winCanvas.height = 256;
+            const wiCtx = winCanvas.getContext('2d');
+            wiCtx.fillStyle = '#38bdf8'; wiCtx.fillRect(0,0,256,256); // Ciel
+            // Immeubles en fond
+            wiCtx.fillStyle = '#1e293b';
+            wiCtx.fillRect(20, 80, 50, 176);
+            wiCtx.fillRect(80, 40, 60, 216);
+            wiCtx.fillRect(150, 100, 70, 156);
+            // Cadre de vitre
+            wiCtx.strokeStyle = '#0f172a'; wiCtx.lineWidth = 12;
+            wiCtx.strokeRect(0,0,256,256);
+            wiCtx.beginPath(); wiCtx.moveTo(128,0); wiCtx.lineTo(128,256); wiCtx.stroke();
+
+            const winTexture = new THREE.CanvasTexture(winCanvas);
+
+            // 5. Baies de Serveurs Informatiques
+            const srvCanvas = document.createElement('canvas');
+            srvCanvas.width = 256; srvCanvas.height = 256;
+            const sCtx = srvCanvas.getContext('2d');
+            sCtx.fillStyle = '#0f172a'; sCtx.fillRect(0,0,256,256);
+            for(let y=15; y<240; y+=30) {
+                sCtx.fillStyle = '#1e293b'; sCtx.fillRect(10, y, 236, 22);
+                // Voyants clignotants vert/rouge
+                for(let x=20; x<230; x+=25) {
+                    sCtx.fillStyle = Math.random() > 0.3 ? '#22c55e' : '#ef4444';
+                    sCtx.fillRect(x, y+6, 10, 10);
+                }
+            }
+            const srvTexture = new THREE.CanvasTexture(srvCanvas);
+
+            // 6. Mur d'ascenseur EXIT
+            const exitCanvas = document.createElement('canvas');
+            exitCanvas.width = 256; exitCanvas.height = 256;
+            const eCtx = exitCanvas.getContext('2d');
+            eCtx.fillStyle = '#334155'; eCtx.fillRect(0,0,256,256);
+            // Panneau vert lumineux EXIT
+            eCtx.fillStyle = '#15803d'; eCtx.fillRect(40, 30, 176, 60);
+            eCtx.strokeStyle = '#22c55e'; eCtx.lineWidth = 4; eCtx.strokeRect(40, 30, 176, 60);
+            eCtx.fillStyle = '#ffffff'; eCtx.font = 'bold 36px sans-serif';
+            eCtx.textAlign = 'center'; eCtx.fillText('EXIT', 128, 73);
+            // Portes coulissantes métal
+            eCtx.fillStyle = '#64748b'; eCtx.fillRect(30, 100, 95, 156);
+            eCtx.fillRect(131, 100, 95, 156);
+            eCtx.strokeStyle = '#1e293b'; eCtx.lineWidth = 4;
+            eCtx.strokeRect(30, 100, 95, 156); eCtx.strokeRect(131, 100, 95, 156);
+
+            const exitTexture = new THREE.CanvasTexture(exitCanvas);
+
+            return { carpetTexture, ceilTexture, wallTexture, winTexture, srvTexture, exitTexture };
+        }
+
+        // Création des sprites d'ennemis Gobelins de bureau avec bulles BD uniques
+        function createGoblinSprite(speechText) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            // --- 1. Dessin du Gobelin Vert en tenue de bureau ---
+            // Oreilles pointues
+            ctx.fillStyle = '#16a34a';
+            ctx.beginPath(); ctx.moveTo(70, 110); ctx.lineTo(30, 90); ctx.lineTo(75, 130); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(186, 110); ctx.lineTo(226, 90); ctx.lineTo(181, 130); ctx.fill();
+
+            // Tête Gobelin
+            ctx.beginPath(); ctx.arc(128, 130, 45, 0, Math.PI * 2); ctx.fill();
+
+            // Yeux rouges/jaunes malicieux
+            ctx.fillStyle = '#facc15';
+            ctx.beginPath(); ctx.arc(110, 120, 10, 0, Math.PI*2); ctx.arc(146, 120, 10, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#dc2626';
+            ctx.beginPath(); ctx.arc(110, 120, 4, 0, Math.PI*2); ctx.arc(146, 120, 4, 0, Math.PI*2); ctx.fill();
+
+            // Nez crochu et Sourire à dents pointues
+            ctx.fillStyle = '#15803d';
+            ctx.beginPath(); ctx.moveTo(128, 120); ctx.lineTo(120, 140); ctx.lineTo(128, 142); ctx.fill();
+            ctx.strokeStyle = '#000000'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(128, 148, 18, 0, Math.PI); ctx.stroke();
+
+            // Corps : Chemise blanche et cravate rouge
+            ctx.fillStyle = '#f8fafc'; ctx.fillRect(90, 175, 76, 80);
+            ctx.fillStyle = '#b91c1c'; // Cravate
+            ctx.beginPath(); ctx.moveTo(122, 175); ctx.lineTo(134, 175); ctx.lineTo(131, 230); ctx.lineTo(128, 235); ctx.lineTo(125, 230); ctx.fill();
+
+            // --- 2. Bulle de Bande Dessinée (BD) à côté de sa tête ---
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3;
+
+            // Forme de la bulle BD
+            const bx = 110, by = 15, bw = 140, bh = 55;
+            ctx.beginPath();
+            ctx.roundRect(bx, by, bw, bh, 12);
+            ctx.fill();
+            ctx.stroke();
+
+            // Queue de la bulle pointant vers le gobelin
+            ctx.beginPath();
+            ctx.moveTo(bx + 20, by + bh);
+            ctx.lineTo(bx - 10, by + bh + 20);
+            ctx.lineTo(bx + 40, by + bh);
+            ctx.fill();
+            ctx.stroke();
+
+            // Texte de la bulle
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 15px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(speechText, bx + bw / 2, by + bh / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(3.2, 3.2, 1);
+            return sprite;
+        }
+
+        /* =========================================================================
+         * 4. MOTEUR DU JEU FPS (Variables, Initialisations & Boucle principale)
+         * ========================================================================= */
+        let scene, camera, renderer;
+        let textures;
+        let player = {
+            pos: new THREE.Vector3(),
+            dir: new THREE.Vector3(),
+            angleY: 0,
+            angleX: 0,
+            burnout: 0, // Health bar : 0 à 100%
+            speed: 0.15
+        };
+
+        let keys = {};
+        let projectiles = []; // Fléchettes Nerf
+        let enemyProjectiles = []; // Tasses / Boules de papier
+        let enemies = [];
+        let props = []; // Bureaux, chaises, ordinateurs
+        let exitZone = new THREE.Vector3();
+
+        let isGameRunning = false;
+        let isPointerLocked = false;
+        let nerfGunMesh;
+
+        // Éléments du DOM
+        const burnoutFill = document.getElementById('burnout-fill');
+        const burnoutValue = document.getElementById('burnout-value');
+        const damageFlash = document.getElementById('damage-flash');
+        const goblinCountElem = document.getElementById('goblin-count');
+
+        function initGameEngine() {
+            const canvas = document.getElementById('game-canvas');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0f172a);
+            scene.fog = new THREE.FogExp2(0x0f172a, 0.015);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            textures = createOfficeTextures();
+
+            // Lumières dans l'Open-Space
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xfffbeb, 0.5);
+            dirLight.position.set(20, 40, 20);
+            scene.add(dirLight);
+
+            // Construction du niveau 3D E1M1
+            buildE1M1Level();
+
+            // Création du pistolet Nerf en main
+            createNerfGunModel();
+
+            // Événements d'entrée utilisateur
+            setupInputListeners();
+
+            // Ajustement redimensionnement fenêtre
+            window.addEventListener('resize', onWindowResize);
+
+            // Dessin initial du visage de Clark Kent
+            drawKentFace(0);
+        }
+
+        // Assemblage 3D de la carte d'après la grille MAP_GRID
+        function buildE1M1Level() {
+            const wallGeo = new THREE.BoxGeometry(TILE_SIZE, 4, TILE_SIZE);
+            const planeGeo = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE);
+
+            const totalMapWidth = MAP_SIZE * TILE_SIZE;
+
+            // Matériaux répétitifs pour sol et plafond
+            textures.carpetTexture.repeat.set(MAP_SIZE, MAP_SIZE);
+            textures.ceilTexture.repeat.set(MAP_SIZE, MAP_SIZE);
+
+            const carpetMat = new THREE.MeshLambertMaterial({ map: textures.carpetTexture });
+            const ceilMat = new THREE.MeshLambertMaterial({ map: textures.ceilTexture });
+
+            // Sol
+            const floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(totalMapWidth, totalMapWidth), carpetMat);
+            floorMesh.rotation.x = -Math.PI / 2;
+            floorMesh.position.set(totalMapWidth / 2, 0, totalMapWidth / 2);
+            scene.add(floorMesh);
+
+            // Plafond
+            const ceilMesh = new THREE.Mesh(new THREE.PlaneGeometry(totalMapWidth, totalMapWidth), ceilMat);
+            ceilMesh.rotation.x = Math.PI / 2;
+            ceilMesh.position.set(totalMapWidth / 2, 4, totalMapWidth / 2);
+            scene.add(ceilMesh);
+
+            // Matériaux de murs
+            const wallMat = new THREE.MeshLambertMaterial({ map: textures.wallTexture });
+            const winMat = new THREE.MeshLambertMaterial({ map: textures.winTexture });
+            const srvMat = new THREE.MeshLambertMaterial({ map: textures.srvTexture });
+            const exitMat = new THREE.MeshLambertMaterial({ map: textures.exitTexture });
+
+            let enemyCount = 0;
+
+            for (let r = 0; r < MAP_SIZE; r++) {
+                for (let c = 0; c < MAP_SIZE; c++) {
+                    const cell = MAP_GRID[r][c];
+                    const x = c * TILE_SIZE + TILE_SIZE / 2;
+                    const z = r * TILE_SIZE + TILE_SIZE / 2;
+
+                    if (cell === 1) { // Mur normal
+                        const wall = new THREE.Mesh(wallGeo, wallMat);
+                        wall.position.set(x, 2, z);
+                        scene.add(wall);
+                    } else if (cell === 2) { // Fenêtre baie vitrée
+                        const windowWall = new THREE.Mesh(wallGeo, winMat);
+                        windowWall.position.set(x, 2, z);
+                        scene.add(windowWall);
+                    } else if (cell === 3) { // Baie de serveurs
+                        const serverWall = new THREE.Mesh(wallGeo, srvMat);
+                        serverWall.position.set(x, 2, z);
+                        scene.add(serverWall);
+                    } else if (cell === 4) { // Mur d'ascenseur Sortie
+                        const exitWall = new THREE.Mesh(wallGeo, exitMat);
+                        exitWall.position.set(x, 2, z);
+                        scene.add(exitWall);
+                        exitZone.set(x, 1, z);
+                    } else if (cell === 5) { // Mobilier Bureau
+                        spawnOfficeDesk(x, z);
+                    } else if (cell === 6) { // Plante Verte
+                        spawnPottedPlant(x, z);
+                    } else if (cell === 8) { // Ennemi Gobelin
+                        const randomText = GOBLIN_SPEECH_OPTIONS[Math.floor(Math.random() * GOBLIN_SPEECH_OPTIONS.length)];
+                        spawnGoblin(x, z, randomText);
+                        enemyCount++;
+                    } else if (cell === 9) { // Départ Joueur
+                        player.pos.set(x, 1.8, z);
+                        camera.position.copy(player.pos);
+                    }
+                }
+            }
+
+            goblinCountElem.textContent = `${enemyCount}/${enemyCount}`;
+        }
+
+        // Modèle 3D de bureau avec PC CRT
+        function spawnOfficeDesk(x, z) {
+            const group = new THREE.Group();
+            
+            // Plateau de bureau
+            const deskGeo = new THREE.BoxGeometry(2.2, 0.1, 1.2);
+            const deskMat = new THREE.MeshLambertMaterial({ color: 0x78350f });
+            const desk = new THREE.Mesh(deskGeo, deskMat);
+            desk.position.set(0, 0.9, 0);
+            group.add(desk);
+
+            // Pieds de bureau
+            const legGeo = new THREE.BoxGeometry(0.1, 0.9, 1.1);
+            const legMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
+            const leg1 = new THREE.Mesh(legGeo, legMat); leg1.position.set(-1, 0.45, 0);
+            const leg2 = new THREE.Mesh(legGeo, legMat); leg2.position.set(1, 0.45, 0);
+            group.add(leg1); group.add(leg2);
+
+            // Moniteur PC de bureau
+            const pcGeo = new THREE.BoxGeometry(0.6, 0.5, 0.4);
+            const pcMat = new THREE.MeshLambertMaterial({ color: 0xe2e8f0 });
+            const pc = new THREE.Mesh(pcGeo, pcMat);
+            pc.position.set(0, 1.2, 0);
+            group.add(pc);
+
+            // Écran bleu du PC
+            const screenGeo = new THREE.PlaneGeometry(0.5, 0.38);
+            const screenMat = new THREE.MeshBasicMaterial({ color: 0x0284c7 });
+            const screen = new THREE.Mesh(screenGeo, screenMat);
+            screen.position.set(0, 1.2, 0.21);
+            group.add(screen);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            props.push({ pos: new THREE.Vector3(x, 0, z), radius: 1.2 });
+        }
+
+        // Modèle 3D de Plante verte de bureau
+        function spawnPottedPlant(x, z) {
+            const group = new THREE.Group();
+            // Pot
+            const potGeo = new THREE.CylinderGeometry(0.4, 0.3, 0.7, 8);
+            const potMat = new THREE.MeshLambertMaterial({ color: 0x9a3412 });
+            const pot = new THREE.Mesh(potGeo, potMat);
+            pot.position.set(0, 0.35, 0);
+            group.add(pot);
+
+            // Feuillage
+            const leafGeo = new THREE.DodecahedronGeometry(0.6);
+            const leafMat = new THREE.MeshLambertMaterial({ color: 0x15803d });
+            const leaves = new THREE.Mesh(leafGeo, leafMat);
+            leaves.position.set(0, 1.1, 0);
+            group.add(leaves);
+
+            group.position.set(x, 0, z);
+            scene.add(group);
+            props.push({ pos: new THREE.Vector3(x, 0, z), radius: 0.6 });
+        }
+
+        // Modèle 3D du Fusil Nerf en main (Attaché à la caméra)
+        function createNerfGunModel() {
+            nerfGunMesh = new THREE.Group();
+
+            // Corps principal (Jaune Nerf)
+            const bodyGeo = new THREE.BoxGeometry(0.18, 0.22, 0.7);
+            const bodyMat = new THREE.MeshLambertMaterial({ color: 0xfacc15 }); // Jaune vif
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            nerfGunMesh.add(body);
+
+            // Canon (Orange Nerf)
+            const barrelGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.3, 12);
+            const barrelMat = new THREE.MeshLambertMaterial({ color: 0xf97316 }); // Orange
+            const barrel = new THREE.Mesh(barrelGeo, barrelMat);
+            barrel.rotation.x = Math.PI / 2;
+            barrel.position.set(0, 0.02, -0.45);
+            nerfGunMesh.add(barrel);
+
+            // Poignée (Bleu Nerf)
+            const handleGeo = new THREE.BoxGeometry(0.14, 0.3, 0.16);
+            const handleMat = new THREE.MeshLambertMaterial({ color: 0x1d4ed8 }); // Bleu
+            const handle = new THREE.Mesh(handleGeo, handleMat);
+            handle.position.set(0, -0.2, 0.15);
+            handle.rotation.x = -0.2;
+            nerfGunMesh.add(handle);
+
+            // Positionnement en bas à droite de l'écran
+            nerfGunMesh.position.set(0.3, -0.28, -0.5);
+            camera.add(nerfGunMesh);
+            scene.add(camera);
+        }
+
+        // Instantier un Gobelin ennemi
+        function spawnGoblin(x, z, speechText) {
+            const sprite = createGoblinSprite(speechText);
+            sprite.position.set(x, 1.6, z);
+            scene.add(sprite);
+
+            enemies.push({
+                sprite: sprite,
+                pos: new THREE.Vector3(x, 1.6, z),
+                speechText: speechText,
+                hp: 2,
+                lastAttack: Date.now() + Math.random() * 2000,
+                alive: true
+            });
+        }
+
+        /* =========================================================================
+         * 5. LOGIQUE DES TIRS ET DES PROJECTILES NERF
+         * ========================================================================= */
+        function shootNerfDart() {
+            if (!isGameRunning) return;
+
+            audio.playShoot();
+
+            // Animation de recul de l'arme
+            nerfGunMesh.position.z = -0.38;
+
+            // Création de la fléchette Nerf 3D
+            const dartGroup = new THREE.Group();
+            
+            // Corps jaune
+            const bodyGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.25, 8);
+            const bodyMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.rotation.x = Math.PI / 2;
+            dartGroup.add(body);
+
+            // Ventouse orange au bout
+            const tipGeo = new THREE.CylinderGeometry(0.04, 0.02, 0.05, 8);
+            const tipMat = new THREE.MeshBasicMaterial({ color: 0xf97316 });
+            const tip = new THREE.Mesh(tipGeo, tipMat);
+            tip.rotation.x = Math.PI / 2;
+            tip.position.set(0, 0, -0.13);
+            dartGroup.add(tip);
+
+            // Position de départ depuis le canon
+            const dir = new THREE.Vector3();
+            camera.getWorldDirection(dir);
+
+            dartGroup.position.copy(camera.position).addScaledVector(dir, 0.6);
+            dartGroup.quaternion.copy(camera.quaternion);
+
+            scene.add(dartGroup);
+
+            projectiles.push({
+                mesh: dartGroup,
+                dir: dir.clone(),
+                speed: 0.9,
+                life: 120 // Frames de vie
+            });
+        }
+
+        // Attaque d'un gobelin (Jet de boule de papier)
+        function spawnGoblinAttack(goblin) {
+            audio.playThrow();
+
+            const paperGeo = new THREE.DodecahedronGeometry(0.15);
+            const paperMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+            const paper = new THREE.Mesh(paperGeo, paperMat);
+
+            paper.position.copy(goblin.pos);
+            const dir = new THREE.Vector3().subVectors(camera.position, goblin.pos).normalize();
+
+            scene.add(paper);
+
+            enemyProjectiles.push({
+                mesh: paper,
+                dir: dir,
+                speed: 0.25,
+                life: 100
+            });
+        }
+
+        /* =========================================================================
+         * 6. ÉVÉNEMENTS & CONTRÔLES (SOURIS & TACTILE)
+         * ========================================================================= */
+        function setupInputListeners() {
+            // Clavier
+            window.addEventListener('keydown', (e) => { keys[e.code] = true; });
+            window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+            // Souris : Pointer Lock pour visée FPS
+            const canvas = document.getElementById('game-canvas');
+            canvas.addEventListener('click', () => {
+                if (isGameRunning && !isPointerLocked) {
+                    canvas.requestPointerLock();
+                } else if (isGameRunning) {
+                    shootNerfDart();
+                }
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                isPointerLocked = (document.pointerLockElement === canvas);
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isPointerLocked || !isGameRunning) return;
+                player.angleY -= e.movementX * 0.0025;
+                player.angleX -= e.movementY * 0.0025;
+                player.angleX = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, player.angleX));
+            });
+
+            // Boutons d'interfaces
+            document.getElementById('start-btn').addEventListener('click', startGame);
+            document.getElementById('restart-btn').addEventListener('click', restartGame);
+            document.getElementById('victory-btn').addEventListener('click', restartGame);
+
+            // Support Mobile Tactile
+            setupMobileControls();
+        }
+
+        function setupMobileControls() {
+            const fireBtn = document.getElementById('mobile-fire-btn');
+            fireBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                shootNerfDart();
+            });
+
+            const joystickZone = document.getElementById('joystick-zone');
+            const knob = document.getElementById('joystick-knob');
+            let touchId = null;
+            let startX = 0, startY = 0;
+
+            joystickZone.addEventListener('touchstart', (e) => {
+                const touch = e.changedTouches[0];
+                touchId = touch.identifier;
+                startX = touch.clientX;
+                startY = touch.clientY;
+            });
+
+            joystickZone.addEventListener('touchmove', (e) => {
+                for (let touch of e.changedTouches) {
+                    if (touch.identifier === touchId) {
+                        const dx = touch.clientX - startX;
+                        const dy = touch.clientY - startY;
+                        knob.style.transform = `translate(${dx * 0.5}px, ${dy * 0.5}px)`;
+
+                        keys['KeyW'] = dy < -10;
+                        keys['KeyS'] = dy > 10;
+                        keys['KeyA'] = dx < -10;
+                        keys['KeyD'] = dx > 10;
+                    }
+                }
+            });
+
+            const resetJoystick = () => {
+                knob.style.transform = `translate(0px, 0px)`;
+                keys['KeyW'] = false; keys['KeyS'] = false;
+                keys['KeyA'] = false; keys['KeyD'] = false;
+            };
+
+            joystickZone.addEventListener('touchend', resetJoystick);
+            joystickZone.addEventListener('touchcancel', resetJoystick);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        /* =========================================================================
+         * 7. MAJ DÉPLACEMENTS, COLLISIONS & COLLISION AVEC DÉCORS
+         * ========================================================================= */
+        function checkCollision(x, z) {
+            const gridC = Math.floor(x / TILE_SIZE);
+            const gridR = Math.floor(z / TILE_SIZE);
+
+            if (gridR < 0 || gridR >= MAP_SIZE || gridC < 0 || gridC >= MAP_SIZE) return true;
+
+            const tile = MAP_GRID[gridR][gridC];
+            if (tile === 1 || tile === 2 || tile === 3 || tile === 4) return true; // Murs
+
+            // Collision avec éléments du décor (bureaux, plantes)
+            for (let p of props) {
+                const dist = Math.hypot(x - p.pos.x, z - p.pos.z);
+                if (dist < p.radius) return true;
+            }
+
+            return false;
+        }
+
+        function updatePlayerPosition() {
+            if (!isGameRunning) return;
+
+            const moveDir = new THREE.Vector3();
+            if (keys['KeyW'] || keys['KeyZ'] || keys['ArrowUp']) moveDir.z -= 1;
+            if (keys['KeyS'] || keys['ArrowDown']) moveDir.z += 1;
+            if (keys['KeyA'] || keys['KeyQ'] || keys['ArrowLeft']) moveDir.x -= 1;
+            if (keys['KeyD'] || keys['ArrowRight']) moveDir.x += 1;
+
+            moveDir.normalize();
+
+            // Rotation selon la visée
+            const euler = new THREE.Euler(player.angleX, player.angleY, 0, 'YXZ');
+            camera.quaternion.setFromEuler(euler);
+
+            if (moveDir.length() > 0) {
+                const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), player.angleY);
+                const side = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), player.angleY);
+
+                const nextPos = player.pos.clone()
+                    .addScaledVector(forward, -moveDir.z * player.speed)
+                    .addScaledVector(side, moveDir.x * player.speed);
+
+                // Sliding Collision (Axe X et Z séparés pour glisser sur les murs)
+                if (!checkCollision(nextPos.x, player.pos.z)) {
+                    player.pos.x = nextPos.x;
+                }
+                if (!checkCollision(player.pos.x, nextPos.z)) {
+                    player.pos.z = nextPos.z;
+                }
+            }
+
+            camera.position.copy(player.pos);
+
+            // Animation retour en position normale du Nerf Gun après un tir
+            if (nerfGunMesh) {
+                nerfGunMesh.position.z += (-0.5 - nerfGunMesh.position.z) * 0.2;
+            }
+
+            // Vérifier la victoire (Atteindre la porte EXIT)
+            const distToExit = player.pos.distanceTo(exitZone);
+            if (distToExit < 2.5) {
+                triggerVictory();
+            }
+        }
+
+        /* =========================================================================
+         * 8. BOUCLE PRINCIPALE DE JEU (GAME LOOP)
+         * ========================================================================= */
+        function gameLoop() {
+            requestAnimationFrame(gameLoop);
+
+            if (!isGameRunning) return;
+
+            // 1. Déplacement Joueur
+            updatePlayerPosition();
+
+            // 2. Gestion des fléchettes Nerf
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                p.mesh.position.addScaledVector(p.dir, p.speed);
+                p.life--;
+
+                // Impact fléchette sur décor
+                if (checkCollision(p.mesh.position.x, p.mesh.position.z)) {
+                    audio.playPlop();
+                    scene.remove(p.mesh);
+                    projectiles.splice(i, 1);
+                    continue;
+                }
+
+                // Impact fléchette sur Gobelins
+                let hitEnemy = false;
+                for (let e of enemies) {
+                    if (e.alive && p.mesh.position.distanceTo(e.pos) < 1.2) {
+                        e.hp--;
+                        audio.playGoblinHit();
+                        // Flash blanc/rouge sur le gobelin
+                        e.sprite.scale.set(3.8, 3.8, 1);
+                        setTimeout(() => { if (e.alive) e.sprite.scale.set(3.2, 3.2, 1); }, 100);
+
+                        if (e.hp <= 0) {
+                            e.alive = false;
+                            scene.remove(e.sprite);
+                        }
+                        hitEnemy = true;
+                        break;
+                    }
+                }
+
+                if (hitEnemy || p.life <= 0) {
+                    scene.remove(p.mesh);
+                    projectiles.splice(i, 1);
+                }
+            }
+
+            // 3. Mettre à jour le compteur de gobelins restants
+            const aliveGoblins = enemies.filter(e => e.alive);
+            goblinCountElem.textContent = `${aliveGoblins.length}/${enemies.length}`;
+
+            // 4. IA et Attaques des Gobelins
+            const now = Date.now();
+            for (let e of enemies) {
+                if (!e.alive) continue;
+
+                const distToPlayer = e.pos.distanceTo(player.pos);
+
+                // Déplacement du gobelin vers le joueur s'il est à portée
+                if (distToPlayer < 18 && distToPlayer > 2.5) {
+                    const dirToPlayer = new THREE.Vector3().subVectors(player.pos, e.pos).normalize();
+                    const nextX = e.pos.x + dirToPlayer.x * 0.03;
+                    const nextZ = e.pos.z + dirToPlayer.z * 0.03;
+
+                    if (!checkCollision(nextX, nextZ)) {
+                        e.pos.x = nextX;
+                        e.pos.z = nextZ;
+                        e.sprite.position.copy(e.pos);
+                    }
+                }
+
+                // Tir d'attaque du gobelin
+                if (distToPlayer < 15 && now - e.lastAttack > 2200) {
+                    spawnGoblinAttack(e);
+                    e.lastAttack = now + Math.random() * 800;
+                }
+            }
+
+            // 5. Projectiles des Gobelins (Boules de papier)
+            for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+                const ep = enemyProjectiles[i];
+                ep.mesh.position.addScaledVector(ep.dir, ep.speed);
+                ep.life--;
+
+                // Toucher le joueur : Augmentation du BURNOUT
+                if (ep.mesh.position.distanceTo(player.pos) < 0.8) {
+                    increaseBurnout(12); // +12% de burnout par attaque
+                    scene.remove(ep.mesh);
+                    enemyProjectiles.splice(i, 1);
+                    continue;
+                }
+
+                if (ep.life <= 0 || checkCollision(ep.mesh.position.x, ep.mesh.position.z)) {
+                    scene.remove(ep.mesh);
+                    enemyProjectiles.splice(i, 1);
+                }
+            }
+
+            // Rendu final Three.js
+            renderer.render(scene, camera);
+        }
+
+        /* =========================================================================
+         * 9. GESTION DU BURNOUT ET DES ÉTATS DE JEU
+         * ========================================================================= */
+        function increaseBurnout(amount) {
+            player.burnout = Math.min(100, player.burnout + amount);
+
+            // MAJ Interface BURNOUT
+            burnoutFill.style.width = `${player.burnout}%`;
+            burnoutValue.textContent = `${Math.round(player.burnout)}%`;
+
+            // Effet visuel dégâts
+            damageFlash.style.opacity = '1';
+            setTimeout(() => { damageFlash.style.opacity = '0'; }, 150);
+
+            audio.playHurt();
+
+            // Mettre à jour la tête de Clark Kent
+            drawKentFace(player.burnout);
+
+            // Condition GAME OVER (Burnout à 100%)
+            if (player.burnout >= 100) {
+                triggerGameOver();
+            }
+        }
+
+        function startGame() {
+            audio.init();
+            document.getElementById('start-screen').classList.add('hidden');
+            if (window.innerWidth < 768) {
+                document.getElementById('mobile-controls').classList.remove('hidden');
+            }
+            isGameRunning = true;
+        }
+
+        function triggerGameOver() {
+            isGameRunning = false;
+            audio.playGameOver();
+            document.getElementById('gameover-screen').classList.remove('hidden');
+            if (document.pointerLockElement) document.exitPointerLock();
+        }
+
+        function triggerVictory() {
+            isGameRunning = false;
+            audio.playVictory();
+            document.getElementById('victory-screen').classList.remove('hidden');
+            if (document.pointerLockElement) document.exitPointerLock();
+        }
+
+        function restartGame() {
+            // Réinitialiser l'état du jeu
+            player.burnout = 0;
+            burnoutFill.style.width = '0%';
+            burnoutValue.textContent = '0%';
+            drawKentFace(0);
+
+            // Réinitialiser les positions et entités
+            for (let e of enemies) scene.remove(e.sprite);
+            for (let p of projectiles) scene.remove(p.mesh);
+            for (let ep of enemyProjectiles) scene.remove(ep.mesh);
+
+            enemies = [];
+            projectiles = [];
+            enemyProjectiles = [];
+
+            // Reconstruire la carte
+            buildE1M1Level();
+
+            document.getElementById('gameover-screen').classList.add('hidden');
+            document.getElementById('victory-screen').classList.add('hidden');
+
+            isGameRunning = true;
+        }
+
+        // Lancement au chargement de la page
+        window.onload = () => {
+            initGameEngine();
+            gameLoop();
+        };
+    </script>
+</body>
+</html>
