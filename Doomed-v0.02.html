@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Doom Office: E1M1 Open-Space</title>
+    <!-- Tailwind CSS pour les interfaces HUD et menus -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js Moteur 3D -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Police Retro Pixel & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .pixel-font {
+            font-family: 'Press Start 2P', cursive;
+        }
+
+        #game-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Effet Viseur HUD Retro */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 18px;
+            height: 18px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255, 235, 59, 0.9);
+            box-shadow: 0 0 4px #000;
+        }
+        #crosshair::before { top: 8px; left: 0; width: 18px; height: 2px; }
+        #crosshair::after { top: 0; left: 8px; width: 2px; height: 18px; }
+
+        /* HUD Doom Style en Bas */
+        #hud-bar {
+            background: linear-gradient(180deg, #3a3d40 0%, #1a1c1e 100%);
+            border-top: 4px solid #5a5e63;
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.8);
+        }
+
+        .hud-panel {
+            background: #0f1113;
+            border: 2px solid #33383f;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.9);
+        }
+
+        /* Flash lors des dégâts reçus */
+        #damage-flash {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(239, 68, 68, 0.35);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.1s ease-out;
+            z-index: 20;
+        }
+
+        /* Styles Menus & Modales */
+        .menu-btn {
+            background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+            border: 2px solid #60a5fa;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+            transition: all 0.15s ease;
+        }
+        .menu-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            filter: brightness(1.15);
+            box-shadow: 0 6px 12px rgba(59, 130, 246, 0.4);
+        }
+        .menu-btn:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+        .menu-btn:disabled {
+            background: #334155;
+            border-color: #475569;
+            color: #94a3b8;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .keybind-btn {
+            background: #1e293b;
+            border: 1px solid #475569;
+            color: #f1f5f9;
+        }
+        .keybind-btn.listening {
+            background: #ca8a04;
+            color: #000;
+            animation: pulse 1s infinite;
+        }
+
+        /* Joystick virtuel mobile */
+        .touch-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            touch-action: manipulation;
+        }
+    </style>
+</head>
+<body class="select-none bg-black text-white">
+
+    <!-- Canvas principal 3D Three.js -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Viseur & Flash de Dégâts -->
+    <div id="crosshair"></div>
+    <div id="damage-flash"></div>
+
+    <!-- HUD Doom Bottom -->
+    <div id="hud-bar" class="fixed bottom-0 left-0 w-full h-24 md:h-28 z-30 flex items-center justify-between px-2 md:px-6">
+        
+        <!-- Bloc Gauche : Barre BURNOUT -->
+        <div class="hud-panel h-20 w-5/12 md:w-1/3 rounded-lg p-2 flex flex-col justify-between">
+            <div class="flex justify-between items-center">
+                <span class="pixel-font text-xs md:text-sm text-red-500 font-bold tracking-wider">BURNOUT</span>
+                <span id="burnout-value" class="pixel-font text-xs md:text-sm text-yellow-400">0%</span>
+            </div>
+            <div class="w-full bg-gray-900 h-6 md:h-7 rounded border border-gray-700 overflow-hidden relative p-0.5">
+                <div id="burnout-fill" class="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-600 w-0 transition-all duration-200 rounded-sm"></div>
+                <div class="absolute inset-0 flex items-center justify-center text-[10px] md:text-xs pixel-font font-bold text-white drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,0.8)]">
+                    FATIGUE
+                </div>
+            </div>
+        </div>
+
+        <!-- Bloc Central : Visage Clark Kent -->
+        <div class="hud-panel h-20 w-24 md:w-28 rounded-lg flex flex-col items-center justify-center relative overflow-hidden bg-slate-900 border-2 border-yellow-600/50">
+            <canvas id="kent-face" width="80" height="80" class="w-16 h-16 object-contain"></canvas>
+            <span id="kent-status" class="text-[9px] pixel-font text-gray-300 mt-0.5">SEREIN</span>
+        </div>
+
+        <!-- Bloc Droite : Munitions & Gobelins -->
+        <div class="hud-panel h-20 w-5/12 md:w-1/3 rounded-lg p-2 flex justify-around items-center">
+            <div class="text-center">
+                <div class="text-[10px] md:text-xs text-gray-400 uppercase font-semibold">Fléchettes</div>
+                <div id="ammo-count" class="pixel-font text-sm md:text-lg text-yellow-400 mt-1">∞</div>
+            </div>
+            <div class="h-10 w-[2px] bg-gray-800"></div>
+            <div class="text-center">
+                <div class="text-[10px] md:text-xs text-gray-400 uppercase font-semibold">Gobelins</div>
+                <div id="goblin-count" class="pixel-font text-sm md:text-lg text-green-400 mt-1">12/12</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contrôles Tactiles (Mobile) -->
+    <div id="mobile-controls" class="fixed inset-0 pointer-events-none z-40 hidden md:hidden">
+        <div id="joystick-zone" class="absolute bottom-28 left-4 w-32 h-32 touch-btn pointer-events-auto rounded-full flex items-center justify-center">
+            <div id="joystick-knob" class="w-12 h-12 bg-white/40 rounded-full"></div>
+        </div>
+        <button id="mobile-fire-btn" class="absolute bottom-28 right-6 w-20 h-20 touch-btn bg-orange-500/50 active:bg-orange-600/80 rounded-full pointer-events-auto flex items-center justify-center font-bold text-lg pixel-font border-2 border-orange-300">
+            TIRER
+        </button>
+    </div>
+
+    <!-- 1. MENU PRINCIPAL & MENU PAUSE -->
+    <div id="main-menu" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4">
+        <div class="max-w-xl w-full bg-slate-900 border-4 border-yellow-500 rounded-2xl p-6 md:p-8 shadow-2xl text-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-orange-500 via-yellow-400 to-red-500"></div>
+            
+            <h1 id="menu-title" class="pixel-font text-3xl md:text-5xl text-yellow-400 mb-1 tracking-wider drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)]">DOOM OFFICE</h1>
+            <h2 id="menu-subtitle" class="text-sm md:text-base text-red-500 font-extrabold mb-6 tracking-widest uppercase">E1M1: Open-Space Hangar</h2>
+
+            <!-- Boutons du menu principal & pause -->
+            <div class="flex flex-col gap-4 w-full max-w-sm mx-auto mb-6">
+                <button id="btn-resume-game" class="menu-btn pixel-font py-3.5 px-6 rounded-xl text-white font-bold text-sm md:text-base tracking-wide hidden">
+                    REPRENDRE LA PARTIE
+                </button>
+                <button id="btn-new-game" class="menu-btn pixel-font py-3.5 px-6 rounded-xl text-white font-bold text-sm md:text-base tracking-wide">
+                    NOUVELLE PARTIE
+                </button>
+                <button id="btn-return-main" class="menu-btn pixel-font py-3.5 px-6 rounded-xl text-white font-bold text-sm md:text-base tracking-wide bg-gradient-to-r from-slate-700 to-slate-800 border-slate-500 hidden">
+                    REVENIR AU MENU PRINCIPAL
+                </button>
+                <button id="btn-open-options" class="menu-btn pixel-font py-3.5 px-6 rounded-xl text-white font-bold text-sm md:text-base tracking-wide bg-gradient-to-r from-slate-700 to-slate-800 border-slate-500">
+                    OPTIONS
+                </button>
+            </div>
+
+            <div class="text-xs text-gray-400 border-t border-slate-800 pt-4 flex justify-between items-center px-2">
+                <span>Touche <kbd class="bg-slate-800 border border-slate-600 px-1.5 py-0.5 rounded text-yellow-400">ÉCHAP</kbd> pour Pause</span>
+                <span>V1.2 - Doom Office 3D</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. MODALE DES OPTIONS (Son, Sensibilité, Touches) -->
+    <div id="options-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="max-w-2xl w-full bg-slate-900 border-2 border-yellow-500/80 rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h2 class="pixel-font text-xl md:text-2xl text-yellow-400 mb-6 text-center">OPTIONS DU JEU</h2>
+
+            <div class="space-y-6">
+                <!-- Activation Audio (Par défaut DÉSACTIVÉ) -->
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 flex items-center justify-between">
+                    <div>
+                        <div class="font-bold text-white text-sm md:text-base">Effets Sonores (Audio API)</div>
+                        <div class="text-xs text-gray-400">Bruits de tirs Nerf, impacts et grognements gobelins</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="option-sound-toggle" class="sr-only peer">
+                        <div class="w-14 h-7 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-green-600"></div>
+                    </label>
+                </div>
+
+                <!-- Sensibilité Souris -->
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-bold text-white text-sm md:text-base">Sensibilité de la souris</span>
+                        <span id="sensitivity-value" class="pixel-font text-xs text-yellow-400">2.5</span>
+                    </div>
+                    <input type="range" id="option-sensitivity" min="0.5" max="6.0" step="0.1" value="2.5" class="w-full accent-yellow-400 cursor-pointer">
+                </div>
+
+                <!-- Configuration des touches -->
+                <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700">
+                    <h3 class="font-bold text-white text-sm md:text-base mb-3 uppercase pixel-font text-xs text-yellow-400">Configuration des touches</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-lg border border-slate-700">
+                            <span class="text-gray-300">Avancer</span>
+                            <button class="keybind-btn pixel-font text-xs px-3 py-1.5 rounded" data-action="forward">Z / W</button>
+                        </div>
+                        <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-lg border border-slate-700">
+                            <span class="text-gray-300">Reculer</span>
+                            <button class="keybind-btn pixel-font text-xs px-3 py-1.5 rounded" data-action="backward">S</button>
+                        </div>
+                        <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-lg border border-slate-700">
+                            <span class="text-gray-300">Gauche</span>
+                            <button class="keybind-btn pixel-font text-xs px-3 py-1.5 rounded" data-action="left">Q / A</button>
+                        </div>
+                        <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-lg border border-slate-700">
+                            <span class="text-gray-300">Droite</span>
+                            <button class="keybind-btn pixel-font text-xs px-3 py-1.5 rounded" data-action="right">D</button>
+                        </div>
+                        <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-lg border border-slate-700">
+                            <span class="text-gray-300">Tirer</span>
+                            <button class="keybind-btn pixel-font text-xs px-3 py-1.5 rounded" data-action="shoot">CLIC G.</button>
+                        </div>
+                        <div class="flex justify-between items-center bg-slate-900 p-2.5 rounded-lg border border-slate-700">
+                            <span class="text-gray-300">Pause / Menu</span>
+                            <button class="keybind-btn pixel-font text-xs px-3 py-1.5 rounded" data-action="pause">ÉCHAP</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bouton Retour -->
+            <div class="mt-6 flex justify-end">
+                <button id="btn-close-options" class="pixel-font bg-yellow-500 hover:bg-yellow-400 text-black font-extrabold py-3 px-6 rounded-xl text-xs transition-all">
+                    VALIDER & FERMER
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Écran Game Over -->
+    <div id="gameover-screen" class="fixed inset-0 bg-red-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 text-center hidden">
+        <div class="max-w-md bg-black border-4 border-red-600 rounded-xl p-6 md:p-8 shadow-2xl">
+            <h1 class="pixel-font text-2xl md:text-3xl text-red-500 mb-4 animate-pulse">BURNOUT MAXIMAL !</h1>
+            <p class="text-gray-300 mb-6 text-sm md:text-base">
+                Vous avez succombé à la pression, aux MEP urgentes et au réseau pourri... Clark Kent est en épuisement professionnel !
+            </p>
+            <button id="restart-btn" class="pixel-font bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg active:scale-95 transition-all text-xs md:text-sm">
+                REPRENDRE UNE TASSE DE CAFÉ
+            </button>
+        </div>
+    </div>
+
+    <!-- Écran Victoire -->
+    <div id="victory-screen" class="fixed inset-0 bg-emerald-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 text-center hidden">
+        <div class="max-w-md bg-black border-4 border-green-500 rounded-xl p-6 md:p-8 shadow-2xl">
+            <h1 class="pixel-font text-2xl md:text-3xl text-green-400 mb-2">E1M1 NETTOYÉ !</h1>
+            <h2 class="text-yellow-400 font-bold mb-4">SORTIE ATTEINTE</h2>
+            <p class="text-gray-300 mb-6 text-sm md:text-base">
+                Vous avez terrassé les gobelins d'open-space à coups de fléchettes Nerf et atteint l'ascenseur !
+            </p>
+            <button id="victory-btn" class="pixel-font bg-green-500 hover:bg-green-600 text-black font-bold py-3 px-6 rounded-lg shadow-lg active:scale-95 transition-all text-xs md:text-sm">
+                REJOUER L'OPEN-SPACE
+            </button>
+        </div>
+    </div>
+
+    <!-- LOGIQUE DE JEU THREE.JS COMPLÈTE -->
+    <script>
+        /* =========================================================================
+         * 1. CONFIGURATION & ÉTAT DU JEU
+         * ========================================================================= */
+        const gameState = {
+            isRunning: false,
+            isPaused: true,
+            hasStartedOnce: false,
+            soundEnabled: false, // DÉSACTIVÉ PAR DÉFAUT
+            mouseSensitivity: 0.0025,
+            keyBinds: {
+                forward: ['KeyW', 'KeyZ', 'ArrowUp'],
+                backward: ['KeyS', 'ArrowDown'],
+                left: ['KeyA', 'KeyQ', 'ArrowLeft'],
+                right: ['KeyD', 'ArrowRight'],
+                shoot: ['Space', 'Mouse0'],
+                pause: ['Escape']
+            }
+        };
+
+        /* =========================================================================
+         * 2. SYNTHÉTISEUR AUDIO RETRO (Web Audio API)
+         * ========================================================================= */
+        class RetroAudio {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playShoot() {
+                if (!gameState.soundEnabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(450, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.12);
+            }
+
+            playPlop() {
+                if (!gameState.soundEnabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playGoblinHit() {
+                if (!gameState.soundEnabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(300, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playHurt() {
+                if (!gameState.soundEnabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(60, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + 0.2);
+            }
+
+            playGameOver() {
+                if (!gameState.soundEnabled) return;
+                this.init();
+                [200, 170, 140, 110].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth'; osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime + idx * 0.2);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.2 + 0.3);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.2);
+                    osc.stop(this.ctx.currentTime + idx * 0.2 + 0.3);
+                });
+            }
+
+            playVictory() {
+                if (!gameState.soundEnabled) return;
+                this.init();
+                [261.63, 329.63, 392.00, 523.25].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle'; osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime + idx * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.12 + 0.25);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.12);
+                    osc.stop(this.ctx.currentTime + idx * 0.12 + 0.25);
+                });
+            }
+        }
+
+        const audio = new RetroAudio();
+
+        /* =========================================================================
+         * 3. DESSIN VISAGE CLARK KENT (HUD DOOM)
+         * ========================================================================= */
+        function drawKentFace(burnoutPercent) {
+            const canvas = document.getElementById('kent-face');
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width, h = canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = '#1e293b'; ctx.fillRect(0, 0, w, h);
+
+            // Visage
+            ctx.fillStyle = '#fbcfe8';
+            ctx.beginPath(); ctx.roundRect(20, 20, 40, 45, 8); ctx.fill();
+
+            // Cheveux Clark Kent
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath(); ctx.arc(40, 22, 22, Math.PI, 0); ctx.fill();
+            // Mèche iconique
+            ctx.beginPath(); ctx.moveTo(40, 20); ctx.quadraticCurveTo(45, 30, 38, 34); ctx.quadraticCurveTo(36, 28, 40, 20); ctx.fill();
+
+            // Lunettes
+            ctx.strokeStyle = '#000000'; ctx.lineWidth = 3;
+            ctx.strokeRect(26, 32, 11, 10); ctx.strokeRect(43, 32, 11, 10);
+            ctx.beginPath(); ctx.moveTo(37, 36); ctx.lineTo(43, 36); ctx.stroke();
+
+            // Yeux
+            ctx.fillStyle = '#0284c7';
+            let eyeOffsetX = (burnoutPercent > 50) ? (Math.random() - 0.5) * 2 : 0;
+
+            if (burnoutPercent >= 100) {
+                ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(29, 34); ctx.lineTo(34, 40); ctx.moveTo(34, 34); ctx.lineTo(29, 40);
+                ctx.moveTo(46, 34); ctx.lineTo(51, 40); ctx.moveTo(51, 34); ctx.lineTo(46, 40);
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.arc(31 + eyeOffsetX, 37, 2.5, 0, Math.PI * 2);
+                ctx.arc(48 + eyeOffsetX, 37, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Costume / Cravate
+            ctx.fillStyle = '#1e3a8a'; ctx.fillRect(15, 62, 50, 18);
+            ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(33, 62); ctx.lineTo(40, 75); ctx.lineTo(47, 62); ctx.fill();
+            ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.moveTo(38, 62); ctx.lineTo(42, 62); ctx.lineTo(43, 78); ctx.lineTo(40, 80); ctx.lineTo(37, 78); ctx.fill();
+
+            // Expressions & Statut
+            ctx.strokeStyle = '#881337'; ctx.lineWidth = 2;
+            const statusElem = document.getElementById('kent-status');
+
+            if (burnoutPercent < 25) {
+                ctx.beginPath(); ctx.arc(40, 50, 5, 0.1, Math.PI - 0.1); ctx.stroke();
+                statusElem.textContent = "SEREIN"; statusElem.className = "text-[9px] pixel-font text-green-400 mt-0.5";
+            } else if (burnoutPercent < 50) {
+                ctx.beginPath(); ctx.moveTo(34, 52); ctx.lineTo(46, 52); ctx.stroke();
+                ctx.fillStyle = '#38bdf8'; ctx.beginPath(); ctx.arc(22, 30, 2.5, 0, Math.PI*2); ctx.fill();
+                statusElem.textContent = "STRESSÉ"; statusElem.className = "text-[9px] pixel-font text-yellow-400 mt-0.5";
+            } else if (burnoutPercent < 75) {
+                ctx.beginPath(); ctx.arc(40, 54, 4, Math.PI, 0); ctx.stroke();
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath(); ctx.arc(22, 28, 3, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(58, 32, 2.5, 0, Math.PI*2); ctx.fill();
+                statusElem.textContent = "SURMENÉ"; statusElem.className = "text-[9px] pixel-font text-orange-400 mt-0.5";
+            } else {
+                ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(40, 52, 6, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#38bdf8';
+                ctx.beginPath(); ctx.arc(21, 26, 3.5, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(59, 28, 3.5, 0, Math.PI*2); ctx.fill();
+                statusElem.textContent = "BURNOUT !"; statusElem.className = "text-[9px] pixel-font text-red-500 animate-pulse mt-0.5";
+            }
+        }
+
+        /* =========================================================================
+         * 4. GENERATION MAP 3D DOOM E1M1 OPEN SPACE
+         * ========================================================================= */
+        const GOBLIN_SPEECH_OPTIONS = [
+            "réseau pourri",
+            "mep urgente",
+            "y'a pas d'UO",
+            "aller à utech"
+        ];
+
+        const MAP_SIZE = 24;
+        const MAP_GRID = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,9,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,1,1,1,2,2,2,2,2,2,2,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,5,8,0,5,0,8,5,0,0,0,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,6,0,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,5,0,8,5,0,8,5,0,0,0,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,5,8,0,5,0,8,5,0,6,0,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,2,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,3,3,3,0,3,3,3,3,3,3,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,3,8,0,0,0,0,0,8,3,3,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,3,3,3,3,3,3,0,3,3,3,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,3,8,0,0,0,0,0,8,3,3,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,3,3,3,0,3,3,3,3,3,3,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,4,0,4,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,4,0,4,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        const TILE_SIZE = 4;
+
+        function createOfficeTextures() {
+            // Moquette
+            const carpetCanvas = document.createElement('canvas'); carpetCanvas.width = 256; carpetCanvas.height = 256;
+            const cCtx = carpetCanvas.getContext('2d');
+            cCtx.fillStyle = '#2a343d'; cCtx.fillRect(0,0,256,256);
+            cCtx.strokeStyle = '#1e252c'; cCtx.lineWidth = 4;
+            for(let i=0; i<=256; i+=32) {
+                cCtx.beginPath(); cCtx.moveTo(i,0); cCtx.lineTo(i,256); cCtx.stroke();
+                cCtx.beginPath(); cCtx.moveTo(0,i); cCtx.lineTo(256,i); cCtx.stroke();
+            }
+            const carpetTexture = new THREE.CanvasTexture(carpetCanvas);
+            carpetTexture.wrapS = THREE.RepeatWrapping; carpetTexture.wrapT = THREE.RepeatWrapping;
+
+            // Plafond Néons
+            const ceilCanvas = document.createElement('canvas'); ceilCanvas.width = 256; ceilCanvas.height = 256;
+            const clCtx = ceilCanvas.getContext('2d');
+            clCtx.fillStyle = '#d1d5db'; clCtx.fillRect(0,0,256,256);
+            clCtx.strokeStyle = '#9ca3af'; clCtx.lineWidth = 4;
+            for(let i=0; i<=256; i+=64) {
+                clCtx.strokeRect(i, 0, 64, 256); clCtx.strokeRect(0, i, 256, 64);
+            }
+            clCtx.fillStyle = '#ffffff'; clCtx.fillRect(70, 70, 116, 116);
+            clCtx.strokeStyle = '#fef08a'; clCtx.lineWidth = 6; clCtx.strokeRect(70, 70, 116, 116);
+            const ceilTexture = new THREE.CanvasTexture(ceilCanvas);
+            ceilTexture.wrapS = THREE.RepeatWrapping; ceilTexture.wrapT = THREE.RepeatWrapping;
+
+            // Mur Bureau
+            const wallCanvas = document.createElement('canvas'); wallCanvas.width = 256; wallCanvas.height = 256;
+            const wCtx = wallCanvas.getContext('2d');
+            wCtx.fillStyle = '#94a3b8'; wCtx.fillRect(0,0,256,256);
+            wCtx.fillStyle = '#475569'; wCtx.fillRect(0,230,256,26);
+            const wallTexture = new THREE.CanvasTexture(wallCanvas);
+
+            // Fenêtres Ville
+            const winCanvas = document.createElement('canvas'); winCanvas.width = 256; winCanvas.height = 256;
+            const wiCtx = winCanvas.getContext('2d');
+            wiCtx.fillStyle = '#38bdf8'; wiCtx.fillRect(0,0,256,256);
+            wiCtx.fillStyle = '#1e293b'; wiCtx.fillRect(20, 80, 50, 176); wiCtx.fillRect(80, 40, 60, 216); wiCtx.fillRect(150, 100, 70, 156);
+            wiCtx.strokeStyle = '#0f172a'; wiCtx.lineWidth = 12; wiCtx.strokeRect(0,0,256,256);
+            wiCtx.beginPath(); wiCtx.moveTo(128,0); wiCtx.lineTo(128,256); wiCtx.stroke();
+            const winTexture = new THREE.CanvasTexture(winCanvas);
+
+            // Serveurs Informatiques
+            const srvCanvas = document.createElement('canvas'); srvCanvas.width = 256; srvCanvas.height = 256;
+            const sCtx = srvCanvas.getContext('2d');
+            sCtx.fillStyle = '#0f172a'; sCtx.fillRect(0,0,256,256);
+            for(let y=15; y<240; y+=30) {
+                sCtx.fillStyle = '#1e293b'; sCtx.fillRect(10, y, 236, 22);
+                for(let x=20; x<230; x+=25) {
+                    sCtx.fillStyle = Math.random() > 0.3 ? '#22c55e' : '#ef4444';
+                    sCtx.fillRect(x, y+6, 10, 10);
+                }
+            }
+            const srvTexture = new THREE.CanvasTexture(srvCanvas);
+
+            // Porte EXIT
+            const exitCanvas = document.createElement('canvas'); exitCanvas.width = 256; exitCanvas.height = 256;
+            const eCtx = exitCanvas.getContext('2d');
+            eCtx.fillStyle = '#334155'; eCtx.fillRect(0,0,256,256);
+            eCtx.fillStyle = '#15803d'; eCtx.fillRect(40, 30, 176, 60);
+            eCtx.strokeStyle = '#22c55e'; eCtx.lineWidth = 4; eCtx.strokeRect(40, 30, 176, 60);
+            eCtx.fillStyle = '#ffffff'; eCtx.font = 'bold 36px sans-serif'; eCtx.textAlign = 'center'; eCtx.fillText('EXIT', 128, 73);
+            eCtx.fillStyle = '#64748b'; eCtx.fillRect(30, 100, 95, 156); eCtx.fillRect(131, 100, 95, 156);
+            const exitTexture = new THREE.CanvasTexture(exitCanvas);
+
+            return { carpetTexture, ceilTexture, wallTexture, winTexture, srvTexture, exitTexture };
+        }
+
+        // Sprite Gobelin avec sa bulle de BD unique
+        function createGoblinSprite(speechText) {
+            const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            // Gobelin Vert
+            ctx.fillStyle = '#16a34a';
+            ctx.beginPath(); ctx.moveTo(70, 110); ctx.lineTo(30, 90); ctx.lineTo(75, 130); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(186, 110); ctx.lineTo(226, 90); ctx.lineTo(181, 130); ctx.fill();
+            ctx.beginPath(); ctx.arc(128, 130, 45, 0, Math.PI * 2); ctx.fill();
+
+            // Yeux & Sourire
+            ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(110, 120, 10, 0, Math.PI*2); ctx.arc(146, 120, 10, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#dc2626'; ctx.beginPath(); ctx.arc(110, 120, 4, 0, Math.PI*2); ctx.arc(146, 120, 4, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#000000'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(128, 148, 18, 0, Math.PI); ctx.stroke();
+
+            // Corps & Chemise
+            ctx.fillStyle = '#f8fafc'; ctx.fillRect(90, 175, 76, 80);
+            ctx.fillStyle = '#b91c1c'; ctx.beginPath(); ctx.moveTo(122, 175); ctx.lineTo(134, 175); ctx.lineTo(131, 230); ctx.lineTo(128, 235); ctx.lineTo(125, 230); ctx.fill();
+
+            // Bulle BD unique
+            ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#000000'; ctx.lineWidth = 3;
+            const bx = 110, by = 15, bw = 140, bh = 55;
+            ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 12); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(bx + 20, by + bh); ctx.lineTo(bx - 10, by + bh + 20); ctx.lineTo(bx + 40, by + bh); ctx.fill(); ctx.stroke();
+
+            ctx.fillStyle = '#000000'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(speechText, bx + bw / 2, by + bh / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+            sprite.scale.set(3.2, 3.2, 1);
+            return sprite;
+        }
+
+        /* =========================================================================
+         * 5. ENGINE 3D & OBJCETS
+         * ========================================================================= */
+        let scene, camera, renderer;
+        let textures;
+        let player = {
+            pos: new THREE.Vector3(),
+            angleY: 0,
+            angleX: 0,
+            burnout: 0,
+            speed: 0.15
+        };
+
+        let keysPressed = {};
+        let projectiles = [];
+        let enemyProjectiles = [];
+        let enemies = [];
+        let props = [];
+        let exitZone = new THREE.Vector3();
+        let nerfGunMesh;
+
+        function init3DEngine() {
+            const canvas = document.getElementById('game-canvas');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0f172a);
+            scene.fog = new THREE.FogExp2(0x0f172a, 0.015);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            textures = createOfficeTextures();
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xfffbeb, 0.5);
+            dirLight.position.set(20, 40, 20);
+            scene.add(dirLight);
+
+            buildLevel();
+            createNerfGunModel();
+            drawKentFace(0);
+        }
+
+        function buildLevel() {
+            // Nettoyage de la scène
+            for (let e of enemies) scene.remove(e.sprite);
+            for (let p of projectiles) scene.remove(p.mesh);
+            for (let ep of enemyProjectiles) scene.remove(ep.mesh);
+            enemies = []; projectiles = []; enemyProjectiles = []; props = [];
+
+            const wallGeo = new THREE.BoxGeometry(TILE_SIZE, 4, TILE_SIZE);
+            const totalMapWidth = MAP_SIZE * TILE_SIZE;
+
+            textures.carpetTexture.repeat.set(MAP_SIZE, MAP_SIZE);
+            textures.ceilTexture.repeat.set(MAP_SIZE, MAP_SIZE);
+
+            const floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(totalMapWidth, totalMapWidth), new THREE.MeshLambertMaterial({ map: textures.carpetTexture }));
+            floorMesh.rotation.x = -Math.PI / 2; floorMesh.position.set(totalMapWidth / 2, 0, totalMapWidth / 2);
+            scene.add(floorMesh);
+
+            const ceilMesh = new THREE.Mesh(new THREE.PlaneGeometry(totalMapWidth, totalMapWidth), new THREE.MeshLambertMaterial({ map: textures.ceilTexture }));
+            ceilMesh.rotation.x = Math.PI / 2; ceilMesh.position.set(totalMapWidth / 2, 4, totalMapWidth / 2);
+            scene.add(ceilMesh);
+
+            const wallMat = new THREE.MeshLambertMaterial({ map: textures.wallTexture });
+            const winMat = new THREE.MeshLambertMaterial({ map: textures.winTexture });
+            const srvMat = new THREE.MeshLambertMaterial({ map: textures.srvTexture });
+            const exitMat = new THREE.MeshLambertMaterial({ map: textures.exitTexture });
+
+            let enemyCount = 0;
+
+            for (let r = 0; r < MAP_SIZE; r++) {
+                for (let c = 0; c < MAP_SIZE; c++) {
+                    const cell = MAP_GRID[r][c];
+                    const x = c * TILE_SIZE + TILE_SIZE / 2;
+                    const z = r * TILE_SIZE + TILE_SIZE / 2;
+
+                    if (cell === 1) {
+                        const wall = new THREE.Mesh(wallGeo, wallMat); wall.position.set(x, 2, z); scene.add(wall);
+                    } else if (cell === 2) {
+                        const win = new THREE.Mesh(wallGeo, winMat); win.position.set(x, 2, z); scene.add(win);
+                    } else if (cell === 3) {
+                        const srv = new THREE.Mesh(wallGeo, srvMat); srv.position.set(x, 2, z); scene.add(srv);
+                    } else if (cell === 4) {
+                        const ext = new THREE.Mesh(wallGeo, exitMat); ext.position.set(x, 2, z); scene.add(ext);
+                        exitZone.set(x, 1, z);
+                    } else if (cell === 5) {
+                        spawnOfficeDesk(x, z);
+                    } else if (cell === 6) {
+                        spawnPottedPlant(x, z);
+                    } else if (cell === 8) {
+                        const txt = GOBLIN_SPEECH_OPTIONS[Math.floor(Math.random() * GOBLIN_SPEECH_OPTIONS.length)];
+                        spawnGoblin(x, z, txt);
+                        enemyCount++;
+                    } else if (cell === 9) {
+                        player.pos.set(x, 1.8, z);
+                        camera.position.copy(player.pos);
+                    }
+                }
+            }
+
+            document.getElementById('goblin-count').textContent = `${enemyCount}/${enemyCount}`;
+        }
+
+        function spawnOfficeDesk(x, z) {
+            const group = new THREE.Group();
+            const desk = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 1.2), new THREE.MeshLambertMaterial({ color: 0x78350f }));
+            desk.position.set(0, 0.9, 0); group.add(desk);
+
+            const pc = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.5, 0.4), new THREE.MeshLambertMaterial({ color: 0xe2e8f0 }));
+            pc.position.set(0, 1.2, 0); group.add(pc);
+
+            const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.38), new THREE.MeshBasicMaterial({ color: 0x0284c7 }));
+            screen.position.set(0, 1.2, 0.21); group.add(screen);
+
+            group.position.set(x, 0, z); scene.add(group);
+            props.push({ pos: new THREE.Vector3(x, 0, z), radius: 1.2 });
+        }
+
+        function spawnPottedPlant(x, z) {
+            const group = new THREE.Group();
+            const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 0.7, 8), new THREE.MeshLambertMaterial({ color: 0x9a3412 }));
+            pot.position.set(0, 0.35, 0); group.add(pot);
+            const leaves = new THREE.Mesh(new THREE.DodecahedronGeometry(0.6), new THREE.MeshLambertMaterial({ color: 0x15803d }));
+            leaves.position.set(0, 1.1, 0); group.add(leaves);
+
+            group.position.set(x, 0, z); scene.add(group);
+            props.push({ pos: new THREE.Vector3(x, 0, z), radius: 0.6 });
+        }
+
+        function createNerfGunModel() {
+            if (nerfGunMesh) camera.remove(nerfGunMesh);
+            nerfGunMesh = new THREE.Group();
+
+            // Corps Jaune
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.22, 0.7), new THREE.MeshLambertMaterial({ color: 0xfacc15 }));
+            nerfGunMesh.add(body);
+
+            // Canon Orange
+            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.3, 12), new THREE.MeshLambertMaterial({ color: 0xf97316 }));
+            barrel.rotation.x = Math.PI / 2; barrel.position.set(0, 0.02, -0.45);
+            nerfGunMesh.add(barrel);
+
+            // Poignée Bleue
+            const handle = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.3, 0.16), new THREE.MeshLambertMaterial({ color: 0x1d4ed8 }));
+            handle.position.set(0, -0.2, 0.15); handle.rotation.x = -0.2;
+            nerfGunMesh.add(handle);
+
+            nerfGunMesh.position.set(0.3, -0.28, -0.5);
+            camera.add(nerfGunMesh);
+            scene.add(camera);
+        }
+
+        function spawnGoblin(x, z, speechText) {
+            const sprite = createGoblinSprite(speechText);
+            sprite.position.set(x, 1.6, z);
+            scene.add(sprite);
+
+            enemies.push({
+                sprite: sprite,
+                pos: new THREE.Vector3(x, 1.6, z),
+                speechText: speechText,
+                hp: 2,
+                lastAttack: Date.now() + Math.random() * 2000,
+                alive: true
+            });
+        }
+
+        function shootNerfDart() {
+            if (gameState.isPaused) return;
+
+            audio.playShoot();
+            nerfGunMesh.position.z = -0.38;
+
+            const dartGroup = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.25, 8), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+            body.rotation.x = Math.PI / 2; dartGroup.add(body);
+
+            const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.02, 0.05, 8), new THREE.MeshBasicMaterial({ color: 0xf97316 }));
+            tip.rotation.x = Math.PI / 2; tip.position.set(0, 0, -0.13); dartGroup.add(tip);
+
+            const dir = new THREE.Vector3();
+            camera.getWorldDirection(dir);
+
+            dartGroup.position.copy(camera.position).addScaledVector(dir, 0.6);
+            dartGroup.quaternion.copy(camera.quaternion);
+
+            scene.add(dartGroup);
+            projectiles.push({ mesh: dartGroup, dir: dir.clone(), speed: 0.9, life: 120 });
+        }
+
+        function spawnGoblinAttack(goblin) {
+            const paper = new THREE.Mesh(new THREE.DodecahedronGeometry(0.15), new THREE.MeshBasicMaterial({ color: 0xf8fafc }));
+            paper.position.copy(goblin.pos);
+            const dir = new THREE.Vector3().subVectors(camera.position, goblin.pos).normalize();
+
+            scene.add(paper);
+            enemyProjectiles.push({ mesh: paper, dir: dir, speed: 0.25, life: 100 });
+        }
+
+        /* =========================================================================
+         * 6. GESTION DES TOUCHES & DEPLACEMENTS
+         * ========================================================================= */
+        function checkCollision(x, z) {
+            const gridC = Math.floor(x / TILE_SIZE);
+            const gridR = Math.floor(z / TILE_SIZE);
+
+            if (gridR < 0 || gridR >= MAP_SIZE || gridC < 0 || gridC >= MAP_SIZE) return true;
+
+            const tile = MAP_GRID[gridR][gridC];
+            if (tile === 1 || tile === 2 || tile === 3 || tile === 4) return true;
+
+            for (let p of props) {
+                if (Math.hypot(x - p.pos.x, z - p.pos.z) < p.radius) return true;
+            }
+            return false;
+        }
+
+        function isActionActive(action) {
+            const boundKeys = gameState.keyBinds[action] || [];
+            return boundKeys.some(key => keysPressed[key]);
+        }
+
+        function updatePlayerPosition() {
+            if (gameState.isPaused) return;
+
+            const moveDir = new THREE.Vector3();
+            if (isActionActive('forward')) moveDir.z -= 1;
+            if (isActionActive('backward')) moveDir.z += 1;
+            if (isActionActive('left')) moveDir.x -= 1;
+            if (isActionActive('right')) moveDir.x += 1;
+
+            moveDir.normalize();
+
+            const euler = new THREE.Euler(player.angleX, player.angleY, 0, 'YXZ');
+            camera.quaternion.setFromEuler(euler);
+
+            if (moveDir.length() > 0) {
+                const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), player.angleY);
+                const side = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), player.angleY);
+
+                const nextPos = player.pos.clone()
+                    .addScaledVector(forward, -moveDir.z * player.speed)
+                    .addScaledVector(side, moveDir.x * player.speed);
+
+                if (!checkCollision(nextPos.x, player.pos.z)) player.pos.x = nextPos.x;
+                if (!checkCollision(player.pos.x, nextPos.z)) player.pos.z = nextPos.z;
+            }
+
+            camera.position.copy(player.pos);
+
+            if (nerfGunMesh) {
+                nerfGunMesh.position.z += (-0.5 - nerfGunMesh.position.z) * 0.2;
+            }
+
+            if (player.pos.distanceTo(exitZone) < 2.5) {
+                triggerVictory();
+            }
+        }
+
+        /* =========================================================================
+         * 7. BOUCLE DE JEU & LOGIQUE DES ENNEMIS
+         * ========================================================================= */
+        function gameLoop() {
+            requestAnimationFrame(gameLoop);
+
+            if (gameState.isPaused) return;
+
+            updatePlayerPosition();
+
+            // Fléchettes Nerf Joueur
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                p.mesh.position.addScaledVector(p.dir, p.speed);
+                p.life--;
+
+                if (checkCollision(p.mesh.position.x, p.mesh.position.z)) {
+                    audio.playPlop();
+                    scene.remove(p.mesh); projectiles.splice(i, 1);
+                    continue;
+                }
+
+                let hit = false;
+                for (let e of enemies) {
+                    if (e.alive && p.mesh.position.distanceTo(e.pos) < 1.2) {
+                        e.hp--;
+                        audio.playGoblinHit();
+                        e.sprite.scale.set(3.8, 3.8, 1);
+                        setTimeout(() => { if (e.alive) e.sprite.scale.set(3.2, 3.2, 1); }, 100);
+
+                        if (e.hp <= 0) {
+                            e.alive = false; scene.remove(e.sprite);
+                        }
+                        hit = true; break;
+                    }
+                }
+
+                if (hit || p.life <= 0) {
+                    scene.remove(p.mesh); projectiles.splice(i, 1);
+                }
+            }
+
+            // Stats Gobelins
+            const aliveGoblins = enemies.filter(e => e.alive);
+            document.getElementById('goblin-count').textContent = `${aliveGoblins.length}/${enemies.length}`;
+
+            // IA Gobelins
+            const now = Date.now();
+            for (let e of enemies) {
+                if (!e.alive) continue;
+                const dist = e.pos.distanceTo(player.pos);
+
+                if (dist < 18 && dist > 2.5) {
+                    const dir = new THREE.Vector3().subVectors(player.pos, e.pos).normalize();
+                    const nx = e.pos.x + dir.x * 0.03;
+                    const nz = e.pos.z + dir.z * 0.03;
+                    if (!checkCollision(nx, nz)) {
+                        e.pos.x = nx; e.pos.z = nz; e.sprite.position.copy(e.pos);
+                    }
+                }
+
+                if (dist < 15 && now - e.lastAttack > 2200) {
+                    spawnGoblinAttack(e);
+                    e.lastAttack = now + Math.random() * 800;
+                }
+            }
+
+            // Attaques Gobelins
+            for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+                const ep = enemyProjectiles[i];
+                ep.mesh.position.addScaledVector(ep.dir, ep.speed);
+                ep.life--;
+
+                if (ep.mesh.position.distanceTo(player.pos) < 0.8) {
+                    increaseBurnout(12);
+                    scene.remove(ep.mesh); enemyProjectiles.splice(i, 1);
+                    continue;
+                }
+
+                if (ep.life <= 0 || checkCollision(ep.mesh.position.x, ep.mesh.position.z)) {
+                    scene.remove(ep.mesh); enemyProjectiles.splice(i, 1);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function increaseBurnout(amount) {
+            player.burnout = Math.min(100, player.burnout + amount);
+            document.getElementById('burnout-fill').style.width = `${player.burnout}%`;
+            document.getElementById('burnout-value').textContent = `${Math.round(player.burnout)}%`;
+
+            const flash = document.getElementById('damage-flash');
+            flash.style.opacity = '1';
+            setTimeout(() => { flash.style.opacity = '0'; }, 150);
+
+            audio.playHurt();
+            drawKentFace(player.burnout);
+
+            if (player.burnout >= 100) triggerGameOver();
+        }
+
+        /* =========================================================================
+         * 8. MENU PRINCIPAL, PAUSE & EVENEMENTS CONFIG
+         * ========================================================================= */
+        function openPauseMenu() {
+            gameState.isPaused = true;
+            document.getElementById('menu-title').textContent = "PAUSE";
+            document.getElementById('menu-subtitle').textContent = "PARTIE EN COURS";
+            document.getElementById('btn-resume-game').classList.remove('hidden');
+            document.getElementById('btn-resume-game').disabled = false;
+            document.getElementById('btn-resume-game').textContent = "REPRENDRE LA PARTIE";
+            document.getElementById('btn-return-main').classList.remove('hidden');
+            document.getElementById('main-menu').classList.remove('hidden');
+            if (document.pointerLockElement) document.exitPointerLock();
+        }
+
+        function showMainMenu() {
+            gameState.isPaused = true;
+            document.getElementById('menu-title').textContent = "DOOM OFFICE";
+            document.getElementById('menu-subtitle').textContent = "E1M1: Open-Space Hangar";
+            document.getElementById('btn-return-main').classList.add('hidden');
+            if (gameState.hasStartedOnce) {
+                document.getElementById('btn-resume-game').classList.remove('hidden');
+                document.getElementById('btn-resume-game').disabled = false;
+                document.getElementById('btn-resume-game').textContent = "REPRENDRE LA PARTIE";
+            } else {
+                document.getElementById('btn-resume-game').classList.add('hidden');
+            }
+            document.getElementById('main-menu').classList.remove('hidden');
+            if (document.pointerLockElement) document.exitPointerLock();
+        }
+
+        function resumeGame() {
+            if (!gameState.hasStartedOnce) return;
+            gameState.isPaused = false;
+            document.getElementById('main-menu').classList.add('hidden');
+            const canvas = document.getElementById('game-canvas');
+            canvas.requestPointerLock();
+        }
+
+        function startNewGame() {
+            gameState.hasStartedOnce = true;
+
+            player.burnout = 0;
+            document.getElementById('burnout-fill').style.width = '0%';
+            document.getElementById('burnout-value').textContent = '0%';
+            drawKentFace(0);
+
+            buildLevel();
+
+            document.getElementById('gameover-screen').classList.add('hidden');
+            document.getElementById('victory-screen').classList.add('hidden');
+
+            resumeGame();
+        }
+
+        function triggerGameOver() {
+            gameState.isPaused = true;
+            audio.playGameOver();
+            document.getElementById('gameover-screen').classList.remove('hidden');
+            if (document.pointerLockElement) document.exitPointerLock();
+        }
+
+        function triggerVictory() {
+            gameState.isPaused = true;
+            audio.playVictory();
+            document.getElementById('victory-screen').classList.remove('hidden');
+            if (document.pointerLockElement) document.exitPointerLock();
+        }
+
+        function setupUIEvents() {
+            // Boutons Menu Principal & Pause
+            document.getElementById('btn-new-game').addEventListener('click', startNewGame);
+            document.getElementById('btn-resume-game').addEventListener('click', resumeGame);
+            document.getElementById('btn-return-main').addEventListener('click', showMainMenu);
+            document.getElementById('btn-open-options').addEventListener('click', () => {
+                document.getElementById('options-modal').classList.remove('hidden');
+            });
+            document.getElementById('btn-close-options').addEventListener('click', () => {
+                document.getElementById('options-modal').classList.add('hidden');
+            });
+
+            document.getElementById('restart-btn').addEventListener('click', startNewGame);
+            document.getElementById('victory-btn').addEventListener('click', startNewGame);
+
+            // Toggle Audio (DÉSACTIVÉ PAR DÉFAUT)
+            const soundToggle = document.getElementById('option-sound-toggle');
+            soundToggle.checked = gameState.soundEnabled;
+            soundToggle.addEventListener('change', (e) => {
+                gameState.soundEnabled = e.target.checked;
+                if (gameState.soundEnabled) audio.init();
+            });
+
+            // Sensibilité Souris
+            const sensInput = document.getElementById('option-sensitivity');
+            sensInput.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                gameState.mouseSensitivity = val * 0.001;
+                document.getElementById('sensitivity-value').textContent = val.toFixed(1);
+            });
+
+            // Reconfiguration des Touches
+            let rebindAction = null;
+            let activeRebindBtn = null;
+
+            document.querySelectorAll('.keybind-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    if (rebindAction) return;
+                    rebindAction = e.target.getAttribute('data-action');
+                    activeRebindBtn = e.target;
+                    btn.classList.add('listening');
+                    btn.textContent = 'APPUYEZ...';
+                });
+            });
+
+            // Événements Clavier
+            window.addEventListener('keydown', (e) => {
+                if (rebindAction && activeRebindBtn) {
+                    e.preventDefault();
+                    gameState.keyBinds[rebindAction] = [e.code];
+                    activeRebindBtn.textContent = e.code.replace('Key', '');
+                    activeRebindBtn.classList.remove('listening');
+                    rebindAction = null;
+                    activeRebindBtn = null;
+                    return;
+                }
+
+                keysPressed[e.code] = true;
+
+                // Touche Pause / Échap
+                if (gameState.keyBinds.pause.includes(e.code)) {
+                    if (gameState.hasStartedOnce) {
+                        if (gameState.isPaused) resumeGame();
+                        else openPauseMenu();
+                    }
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                keysPressed[e.code] = false;
+            });
+
+            // Pointer Lock & Souris
+            const canvas = document.getElementById('game-canvas');
+            canvas.addEventListener('mousedown', (e) => {
+                if (!gameState.isPaused && e.button === 0) {
+                    shootNerfDart();
+                }
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (gameState.isPaused || !document.pointerLockElement) return;
+                player.angleY -= e.movementX * gameState.mouseSensitivity;
+                player.angleX -= e.movementY * gameState.mouseSensitivity;
+                player.angleX = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, player.angleX));
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        /* =========================================================================
+         * 9. DEMARRAGE APPLICATION
+         * ========================================================================= */
+        window.onload = () => {
+            init3DEngine();
+            setupUIEvents();
+            gameLoop();
+        };
+    </script>
+</body>
+</html>

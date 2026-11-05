@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doomed - Open-Space Shooter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; color: #fff; }
+    #game-container { width: 100%; height: 100%; position: relative; }
+    
+    /* MENUS */
+    .overlay-screen {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(10, 10, 15, 0.92); display: flex; flex-direction: column;
+      justify-content: center; align-items: center; z-index: 100;
+    }
+    .hidden { display: none !important; }
+    
+    h1.title { font-size: 5rem; color: #e74c3c; text-shadow: 0 0 20px #c0392b, 4px 4px 0px #000; letter-spacing: 4px; margin-bottom: 5px; }
+    .subtitle { font-size: 1.5rem; color: #f39c12; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 2px; }
+    
+    .menu-box { display: flex; flex-direction: column; gap: 15px; width: 340px; }
+    .btn {
+      background: #2c3e50; color: #ecf0f1; border: 2px solid #34495e; padding: 12px 20px;
+      font-size: 1.2rem; font-family: inherit; font-weight: bold; cursor: pointer;
+      text-transform: uppercase; transition: all 0.2s; text-align: center;
+    }
+    .btn:hover { background: #e74c3c; border-color: #f1c40f; color: #fff; transform: scale(1.03); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    
+    /* PROMPT NOM DE JOUEUR */
+    .name-input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+    .name-input-group label { font-size: 1.1rem; color: #f39c12; font-weight: bold; }
+    .name-input {
+      background: #111; border: 2px solid #e74c3c; color: #fff; padding: 10px;
+      font-size: 1.2rem; font-family: inherit; text-align: center; outline: none;
+    }
+    
+    /* OPTIONS */
+    .options-group { display: flex; flex-direction: column; gap: 15px; width: 400px; background: rgba(0,0,0,0.5); padding: 20px; border: 1px solid #444; }
+    .option-row { display: flex; justify-content: space-between; align-items: center; font-size: 1rem; }
+    .key-bind-btn { background: #111; border: 1px solid #f39c12; color: #f39c12; padding: 5px 10px; cursor: pointer; min-width: 80px; text-align: center; }
+    .key-bind-btn.binding { background: #e74c3c; color: #fff; }
+
+    /* HUD */
+    #hud {
+      position: absolute; bottom: 0; left: 0; width: 100%; height: 90px;
+      background: #1a1a1a; border-top: 4px solid #444; display: flex;
+      justify-content: space-between; align-items: center; padding: 0 20px; z-index: 10;
+    }
+    .hud-block { display: flex; flex-direction: column; align-items: center; }
+    .hud-label { font-size: 0.8rem; color: #aaa; margin-bottom: 4px; }
+    .hud-value { font-size: 1.6rem; color: #f39c12; font-weight: bold; }
+    
+    /* BURNOUT BAR */
+    .burnout-container { width: 200px; height: 25px; background: #333; border: 2px solid #555; position: relative; }
+    #burnout-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #f39c12, #e74c3c); transition: width 0.2s; }
+    #burnout-text { position: absolute; width: 100%; text-align: center; line-height: 25px; font-weight: bold; font-size: 0.9rem; text-shadow: 1px 1px 2px #000; }
+    
+    /* AVATAR FACE */
+    #face-container { width: 70px; height: 70px; background: #2c3e50; border: 2px solid #7f8c8d; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+    #face-canvas { width: 100%; height: 100%; }
+
+    /* VISEE / CROSSHAIR */
+    #crosshair {
+      position: absolute; top: 50%; left: 50%; width: 10px; height: 10px;
+      transform: translate(-50%, -50%); pointer-events: none; z-index: 5;
+    }
+    #crosshair::before, #crosshair::after { content: ''; position: absolute; background: rgba(255,255,255,0.7); }
+    #crosshair::before { top: 4px; left: -10px; width: 30px; height: 2px; }
+    #crosshair::after { top: -10px; left: 4px; width: 2px; height: 30px; }
+    
+    /* BULLES BD ENEMIS (DOM Overlay) */
+    .speech-bubble {
+      position: absolute; background: #fff; color: #000; padding: 8px 12px;
+      border-radius: 12px; border: 2px solid #000; font-family: 'Comic Sans MS', sans-serif;
+      font-size: 0.85rem; font-weight: bold; max-width: 180px; text-align: center;
+      pointer-events: none; transform: translate(-50%, -100%); z-index: 20;
+      box-shadow: 3px 3px 0px rgba(0,0,0,0.3);
+    }
+    .speech-bubble::after {
+      content: ''; position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%);
+      border-width: 10px 8px 0; border-style: solid; border-color: #fff transparent; display: block; width: 0;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <div id="game-container">
+    <div id="crosshair"></div>
+    
+    <!-- DOM Overlay pour les bulles -->
+    <div id="bubbles-container"></div>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div class="hud-block">
+        <div class="hud-label">AGENT</div>
+        <div class="hud-value" id="hud-player-name">Joueur 1</div>
+      </div>
+      
+      <div class="hud-block">
+        <div class="hud-label">SANTÉ MENTALE</div>
+        <div class="burnout-container">
+          <div id="burnout-bar"></div>
+          <div id="burnout-text">BURNOUT 0%</div>
+        </div>
+      </div>
+
+      <div id="face-container">
+        <canvas id="face-canvas" width="70" height="70"></canvas>
+      </div>
+
+      <div class="hud-block">
+        <div class="hud-label">MUNITIONS NERF</div>
+        <div class="hud-value" id="ammo-val">∞</div>
+      </div>
+      
+      <div class="hud-block">
+        <div class="hud-label">OBJECTIF</div>
+        <div class="hud-value" style="font-size:1rem;" id="goblin-count">0 GOBELINS</div>
+      </div>
+    </div>
+
+    <!-- MENU PRINCIPAL / PAUSE -->
+    <div id="main-menu" class="overlay-screen">
+      <h1 class="title">DOOMED</h1>
+      <div class="subtitle">Niveau 1: Open-Space Nightmare</div>
+      
+      <!-- FORMULAIRE NOUVELLE PARTIE -->
+      <div id="new-game-form" class="menu-box hidden">
+        <div class="name-input-group">
+          <label for="player-name-input">NOM DE L'AGENT :</label>
+          <input type="text" id="player-name-input" class="name-input" value="Joueur 1" maxlength="15" />
+        </div>
+        <button class="btn" id="btn-start-confirm">LANCER LA PARTIE</button>
+        <button class="btn" id="btn-cancel-new">RETOUR</button>
+      </div>
+
+      <!-- BOUTONS DU MENU -->
+      <div id="menu-buttons" class="menu-box">
+        <button class="btn" id="btn-resume" disabled>REPRENDRE LA PARTIE</button>
+        <button class="btn" id="btn-new-game">NOUVELLE PARTIE</button>
+        <button class="btn" id="btn-options">OPTIONS</button>
+        <button class="btn hidden" id="btn-return-main">MENU PRINCIPAL</button>
+      </div>
+
+      <!-- MENU OPTIONS -->
+      <div id="options-menu" class="options-group hidden">
+        <h2 style="text-align: center; color: #f39c12; margin-bottom: 15px;">OPTIONS</h2>
+        <div class="option-row">
+          <span>ACTIVER LE SON :</span>
+          <input type="checkbox" id="opt-sound" style="width: 20px; height: 20px; cursor: pointer;">
+        </div>
+        <div class="option-row">
+          <span>SENSIBILITÉ SOURIS :</span>
+          <input type="range" id="opt-sens" min="1" max="10" value="5">
+        </div>
+        <hr style="border-color: #444; margin: 10px 0;">
+        <div style="font-weight: bold; color: #aaa; margin-bottom: 5px;">COMMANDES :</div>
+        <div class="option-row"><span>Avancer :</span><button class="key-bind-btn" data-action="forward">Z</button></div>
+        <div class="option-row"><span>Reculer :</span><button class="key-bind-btn" data-action="backward">S</button></div>
+        <div class="option-row"><span>Gauche :</span><button class="key-bind-btn" data-action="left">Q</button></div>
+        <div class="option-row"><span>Droite :</span><button class="key-bind-btn" data-action="right">D</button></div>
+        <div class="option-row"><span>Tirer :</span><span>CLIC GAUCHE</span></div>
+        <div class="option-row"><span>Pause :</span><span>ÉCHAP</span></div>
+        
+        <button class="btn" id="btn-close-options" style="margin-top: 15px;">VALIDER</button>
+      </div>
+    </div>
+
+    <!-- ÉCRAN GAME OVER / VICTOIRE -->
+    <div id="end-screen" class="overlay-screen hidden">
+      <h1 class="title" id="end-title">GAME OVER</h1>
+      <div class="subtitle" id="end-subtitle">Le burnout vous a tout simplement anéanti...</div>
+      <div class="menu-box">
+        <button class="btn" id="btn-restart">RECOMMENCER</button>
+        <button class="btn" id="btn-end-main-menu">MENU PRINCIPAL</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- LISTE DES RÉPLIQUES DE GOBELINS ---
+    const GOBLIN_SPEECH_OPTIONS = [
+      "Subit mon réseau pourri!",
+      "T'as pas le temps? Traite quand même cette MEP urgente!",
+      "Si y'as pas d'UO, y'a pas de facturation c'est gratuit",
+      "Le carburant coute 2.20€/L, on s'en fout va te ruiner à UTECH",
+      "Remplacer Ivanti? Quelle drôle d'idée!",
+      "C'est pas une alerte rouge météo qui va t'empêcher de venir",
+      "Si tu sais pas quoi faire tu peux remplir ce tableur",
+      "Tout le monde va se dire \"Bonjour\", \"Bon appétit\", \"Bonne digestion\" et \"Bonne soirée\" par chat, c'est pas en option",
+      "Dans ressources humaines y'a RESSOURCE",
+      "Ici c'est Flex office mais ON décide où tu peux t'asseoir",
+      "Josiane de l'accueil qui sait pas ce qu'est le menu démarrer t'attend pour son nouveau PC"
+    ];
+
+    // --- SYSTEM STATE & CONFIG ---
+    let playerName = "Joueur 1";
+    let isPlaying = false;
+    let isPaused = false;
+    let burnout = 0; // 0 to 100
+    const maxBurnout = 100;
+    
+    const config = {
+      sound: false,
+      sens: 0.002,
+      keys: { forward: 'KeyW', backward: 'KeyS', left: 'KeyA', right: 'KeyD' }
+    };
+
+    // --- THREE.JS GLOBALS ---
+    let scene, camera, renderer;
+    let moveState = { forward: false, backward: false, left: false, right: false };
+    let velocity = new THREE.Vector3();
+    let darts = [];
+    let goblins = [];
+    let colliders = [];
+    let raycaster = new THREE.Raycaster();
+    
+    // Audio Context
+    let audioCtx = null;
+
+    // --- TEXTURES GÉNÉRÉES ---
+    function createWoodTexture() {
+      const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#8B4513'; ctx.fillRect(0,0,256,256);
+      ctx.fillStyle = '#654321';
+      for(let i=0; i<30; i++) ctx.fillRect(0, Math.random()*256, 256, 2+Math.random()*4);
+      return new THREE.CanvasTexture(canvas);
+    }
+    function createScreenTexture() {
+      const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#111'; ctx.fillRect(0,0,128,128);
+      ctx.fillStyle = '#0f0'; ctx.font = '12px monospace';
+      ctx.fillText("> DOOMED_SYS", 10, 20);
+      ctx.fillText("ERROR: 404 UO", 10, 40);
+      ctx.fillText("MEP STATUS: FAIL", 10, 60);
+      return new THREE.CanvasTexture(canvas);
+    }
+    function createWallTexture() {
+      const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#dcdde1'; ctx.fillRect(0,0,256,256);
+      ctx.fillStyle = '#bdc3c7'; ctx.fillRect(0,240,256,16); // Plinthe
+      return new THREE.CanvasTexture(canvas);
+    }
+    function createFloorTexture() {
+      const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#34495e'; ctx.fillRect(0,0,256,256);
+      ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 4;
+      for(let i=0; i<=256; i+=64) {
+        ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,256); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(256,i); ctx.stroke();
+      }
+      return new THREE.CanvasTexture(canvas);
+    }
+
+    const wallTex = createWallTexture();
+    const floorTex = createFloorTexture();
+    const woodTex = createWoodTexture();
+    const screenTex = createScreenTexture();
+
+    // --- INITIALISATION THREE.JS ---
+    function initEngine() {
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0a0f);
+      scene.fog = new THREE.FogExp2(0x0a0a0f, 0.015);
+
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 1.7, 0);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      document.getElementById('game-container').appendChild(renderer.domElement);
+
+      // Lumières Open-Space
+      const ambLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
+      dirLight.position.set(20, 40, 20);
+      scene.add(dirLight);
+
+      buildLevelE1M1();
+      createNerfGun();
+
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    // --- CONSTRUCTION DU NIVEAU E1M1 (OPEN-SPACE) ---
+    function buildLevelE1M1() {
+      const wallMat = new THREE.MeshStandardMaterial({ map: wallTex });
+      const floorMat = new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.8 });
+      const ceilingMat = new THREE.MeshStandardMaterial({ color: 0xecf0f1 });
+
+      // Plancher et Plafond
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      scene.add(floor);
+
+      const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), ceilingMat);
+      ceiling.rotation.x = Math.PI / 2;
+      ceiling.position.y = 4;
+      scene.add(ceiling);
+
+      // Murs extérieurs (Open space principal + couloirs E1M1)
+      const mapLayout = [
+        [1,1,1,1,1,1,1,1,1,1],
+        [1,0,0,0,1,0,0,0,0,1],
+        [1,0,1,0,1,0,1,1,0,1],
+        [1,0,1,0,0,0,0,1,0,1],
+        [1,0,1,1,1,1,0,1,0,1],
+        [1,0,0,0,0,1,0,0,0,1],
+        [1,1,1,1,0,1,1,1,0,1],
+        [1,0,0,0,0,0,0,1,0,1],
+        [1,0,1,1,1,1,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1]
+      ];
+
+      const blockSize = 6;
+      for(let r=0; r<mapLayout.length; r++) {
+        for(let c=0; c<mapLayout[r].length; c++) {
+          if(mapLayout[r][c] === 1) {
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(blockSize, 4, blockSize), wallMat);
+            wall.position.set((c - 5) * blockSize, 2, (r - 5) * blockSize);
+            scene.add(wall);
+            colliders.push(wall);
+          }
+        }
+      }
+
+      // Ajout de bureaux et baies vitrées dans l'espace
+      spawnOfficeFurniture(-6, -6);
+      spawnOfficeFurniture(6, -6);
+      spawnOfficeFurniture(-6, 6);
+      spawnOfficeFurniture(12, 12);
+
+      // Néons
+      for(let x = -20; x <= 20; x += 10) {
+        for(let z = -20; z <= 20; z += 10) {
+          const neon = new THREE.PointLight(0xffffff, 0.3, 12);
+          neon.position.set(x, 3.8, z);
+          scene.add(neon);
+        }
+      }
+
+      // Spawner les gobelins
+      spawnGoblin(-12, -12);
+      spawnGoblin(12, -6);
+      spawnGoblin(-6, 12);
+      spawnGoblin(18, 18);
+      spawnGoblin(0, 18);
+      updateGoblinHUD();
+    }
+
+    // Mobilier de Bureau (Bureau, PC, Chaise)
+    function spawnOfficeFurniture(x, z) {
+      const deskGroup = new THREE.Group();
+      
+      // Table
+      const deskMat = new THREE.MeshStandardMaterial({ map: woodTex });
+      const desk = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 1.2), deskMat);
+      desk.position.y = 0.75;
+      deskGroup.add(desk);
+
+      // Pieds
+      const legMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50 });
+      const legGeo = new THREE.BoxGeometry(0.1, 0.75, 0.1);
+      [[-1.1, -0.5], [1.1, -0.5], [-1.1, 0.5], [1.1, 0.5]].forEach(p => {
+        const leg = new THREE.Mesh(legGeo, legMat);
+        leg.position.set(p[0], 0.375, p[1]);
+        deskGroup.add(leg);
+      });
+
+      // Écran PC
+      const screenMat = new THREE.MeshStandardMaterial({ map: screenTex });
+      const monitor = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.1), screenMat);
+      monitor.position.set(0, 1.05, -0.2);
+      deskGroup.add(monitor);
+
+      deskGroup.position.set(x, 0, z);
+      scene.add(deskGroup);
+      colliders.push(desk);
+    }
+
+    // --- FUSIL NERF (FPS) ---
+    let nerfGunGroup;
+    function createNerfGun() {
+      nerfGunGroup = new THREE.Group();
+      
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff6600 }); // Orange Nerf
+      const barrelMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+      const detailMat = new THREE.MeshStandardMaterial({ color: 0xffcc00 }); // Jaune
+
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 0.6), bodyMat);
+      body.position.set(0, 0, 0);
+      nerfGunGroup.add(body);
+
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.4), barrelMat);
+      barrel.rotation.x = Math.PI / 2;
+      barrel.position.set(0, 0.05, -0.4);
+      nerfGunGroup.add(barrel);
+
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.25, 0.12), detailMat);
+      handle.position.set(0, -0.18, 0.1);
+      nerfGunGroup.add(handle);
+
+      nerfGunGroup.position.set(0.25, -0.25, -0.5);
+      camera.add(nerfGunGroup);
+      scene.add(camera);
+    }
+
+    function shootNerf() {
+      if(!isPlaying || isPaused) return;
+
+      playBeepSound(440, 0.05); // Bruit de tir synthétique
+
+      // Animation recul
+      nerfGunGroup.position.z = -0.4;
+      setTimeout(() => nerfGunGroup.position.z = -0.5, 80);
+
+      // Fléchette en mousse (Bleue avec bout orange)
+      const dartGroup = new THREE.Group();
+      const bodyMat = new THREE.MeshBasicMaterial({ color: 0x0066ff });
+      const tipMat = new THREE.MeshBasicMaterial({ color: 0xff6600 });
+
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.12), bodyMat);
+      body.rotation.x = Math.PI / 2;
+      dartGroup.add(body);
+
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.018), tipMat);
+      tip.position.z = -0.06;
+      dartGroup.add(tip);
+
+      // Calcul position départ
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      dartGroup.position.copy(camera.position).add(dir.clone().multiplyScalar(0.5));
+      
+      darts.push({ mesh: dartGroup, dir: dir, life: 120 });
+      scene.add(dartGroup);
+    }
+
+    // --- GOBELINS & BULLES BD ---
+    function spawnGoblin(x, z) {
+      const goblinGroup = new THREE.Group();
+
+      // Corps Gobelin
+      const skinMat = new THREE.MeshStandardMaterial({ color: 0x27ae60 });
+      const suitMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50 }); // Costume d'open-space
+
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.0), suitMat);
+      body.position.y = 0.5;
+      goblinGroup.add(body);
+
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.35), skinMat);
+      head.position.y = 1.2;
+      goblinGroup.add(head);
+
+      // Oreilles pointues
+      const earGeo = new THREE.ConeGeometry(0.1, 0.3, 4);
+      const earL = new THREE.Mesh(earGeo, skinMat);
+      earL.rotation.z = Math.PI / 3;
+      earL.position.set(-0.35, 1.25, 0);
+      goblinGroup.add(earL);
+
+      const earR = new THREE.Mesh(earGeo, skinMat);
+      earR.rotation.z = -Math.PI / 3;
+      earR.position.set(0.35, 1.25, 0);
+      goblinGroup.add(earR);
+
+      goblinGroup.position.set(x, 0, z);
+      scene.add(goblinGroup);
+
+      // Sélection d'un texte aléatoire dans la liste
+      const text = GOBLIN_SPEECH_OPTIONS[Math.floor(Math.random() * GOBLIN_SPEECH_OPTIONS.length)];
+
+      // Création de l'élément HTML bulle
+      const bubbleEl = document.createElement('div');
+      bubbleEl.className = 'speech-bubble';
+      bubbleEl.innerText = text;
+      document.getElementById('bubbles-container').appendChild(bubbleEl);
+
+      goblins.push({
+        mesh: goblinGroup,
+        bubble: bubbleEl,
+        hp: 2,
+        attackTimer: 0
+      });
+    }
+
+    function updateGoblinHUD() {
+      document.getElementById('goblin-count').innerText = `${goblins.length} GOBELINS`;
+      if(goblins.length === 0 && isPlaying) {
+        triggerVictory();
+      }
+    }
+
+    // --- VISAGE DE JOUEUR 1 (STYLE DOOM) ---
+    function drawPlayerFace() {
+      const cvs = document.getElementById('face-canvas');
+      const ctx = cvs.getContext('2d');
+      ctx.clearRect(0, 0, 70, 70);
+
+      // Peau
+      ctx.fillStyle = '#ffccaa';
+      ctx.fillRect(15, 15, 40, 45);
+
+      // Cheveux (Coupe classique Kent)
+      ctx.fillStyle = '#2c3e50';
+      ctx.beginPath();
+      ctx.arc(35, 20, 22, Math.PI, 0);
+      ctx.fill();
+      // Mèche
+      ctx.fillRect(32, 18, 12, 8);
+
+      // Lunettes (Carrées noires)
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#000';
+      ctx.strokeRect(20, 28, 12, 10);
+      ctx.strokeRect(38, 28, 12, 10);
+      ctx.beginPath(); ctx.moveTo(32, 33); ctx.lineTo(38, 33); ctx.stroke();
+
+      // Yeux (Regardent selon santé/burnout)
+      ctx.fillStyle = '#000';
+      if(burnout > 70) {
+        // Yeux plissés/blessés
+        ctx.fillRect(23, 32, 6, 2);
+        ctx.fillRect(41, 32, 6, 2);
+      } else {
+        ctx.fillRect(24, 31, 4, 4);
+        ctx.fillRect(42, 31, 4, 4);
+      }
+
+      // Bouche (Évolue avec le burnout)
+      ctx.strokeStyle = '#c0392b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      if(burnout < 30) {
+        // Sourire confiant
+        ctx.arc(35, 46, 8, 0, Math.PI);
+      } else if(burnout < 70) {
+        // Neutre / Inquiet
+        ctx.moveTo(28, 48); ctx.lineTo(42, 48);
+      } else {
+        // Grimace / Dents serrées
+        ctx.moveTo(26, 50); ctx.lineTo(44, 46);
+      }
+      ctx.stroke();
+
+      // Tachés de sang/fatigue si burnout élevé
+      if(burnout > 50) {
+        ctx.fillStyle = 'rgba(231, 76, 60, 0.4)';
+        ctx.fillRect(18, 38, 8, 12);
+      }
+    }
+
+    // --- SON SYNTHÉTIQUE ---
+    function playBeepSound(freq, duration) {
+      if(!config.sound) return;
+      try {
+        if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.value = freq;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+        osc.stop(audioCtx.currentTime + duration);
+      } catch(e) {}
+    }
+
+    // --- LOGIQUE DU JEU & BOUCLE ---
+    let prevTime = performance.now();
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const time = performance.now();
+      const delta = (time - prevTime) / 1000;
+      prevTime = time;
+
+      if(isPlaying && !isPaused) {
+        // Déplacement Joueur
+        const speed = 8.0 * delta;
+        const dir = new THREE.Vector3();
+        
+        if(moveState.forward) camera.translateZ(-speed);
+        if(moveState.backward) camera.translateZ(speed);
+        if(moveState.left) camera.translateX(-speed);
+        if(moveState.right) camera.translateX(speed);
+        camera.position.y = 1.7; // Garder la hauteur des yeux
+
+        // Collisions Murs Simples
+        colliders.forEach(col => {
+          const b = new THREE.Box3().setFromObject(col);
+          if(b.containsPoint(camera.position)) {
+            if(moveState.forward) camera.translateZ(speed);
+            if(moveState.backward) camera.translateZ(-speed);
+            if(moveState.left) camera.translateX(speed);
+            if(moveState.right) camera.translateX(-speed);
+          }
+        });
+
+        // Mise à jour Fléchettes
+        for(let i = darts.length - 1; i >= 0; i--) {
+          const d = darts[i];
+          d.mesh.position.add(d.dir.clone().multiplyScalar(15 * delta));
+          d.life--;
+
+          // Detection Impact Gobelin
+          let hit = false;
+          goblins.forEach((g, gIdx) => {
+            if(!hit && d.mesh.position.distanceTo(g.mesh.position.clone().add(new THREE.Vector3(0,1,0))) < 0.6) {
+              g.hp--;
+              playBeepSound(200, 0.1);
+              hit = true;
+              if(g.hp <= 0) {
+                scene.remove(g.mesh);
+                g.bubble.remove();
+                goblins.splice(gIdx, 1);
+                updateGoblinHUD();
+              }
+            }
+          });
+
+          if(hit || d.life <= 0) {
+            scene.remove(d.mesh);
+            darts.splice(i, 1);
+          }
+        }
+
+        // Mise à jour Gobelins & Bulles
+        goblins.forEach(g => {
+          // Orienté vers le joueur
+          g.mesh.lookAt(camera.position.x, g.mesh.position.y, camera.position.z);
+
+          // Poursuite lente du joueur
+          const dist = g.mesh.position.distanceTo(camera.position);
+          if(dist > 1.5) {
+            const moveDir = new THREE.Vector3().subVectors(camera.position, g.mesh.position).normalize();
+            g.mesh.position.add(moveDir.multiplyScalar(2.0 * delta));
+          } else {
+            // Attaque BURNOUT !
+            g.attackTimer += delta;
+            if(g.attackTimer > 1.0) {
+              g.attackTimer = 0;
+              burnout = Math.min(maxBurnout, burnout + 10);
+              updateBurnoutUI();
+              playBeepSound(150, 0.2);
+
+              if(burnout >= maxBurnout) triggerGameOver();
+            }
+          }
+
+          // Projection 3D -> 2D pour la bulle de BD
+          const headPos = g.mesh.position.clone().add(new THREE.Vector3(0, 1.8, 0));
+          headPos.project(camera);
+
+          // Masquer si derrière la caméra
+          if(headPos.z > 1) {
+            g.bubble.style.display = 'none';
+          } else {
+            g.bubble.style.display = 'block';
+            const x = (headPos.x * .5 + .5) * window.innerWidth;
+            const y = (-(headPos.y * .5) + .5) * window.innerHeight;
+            g.bubble.style.left = `${x}px`;
+            g.bubble.style.top = `${y}px`;
+          }
+        });
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    function updateBurnoutUI() {
+      document.getElementById('burnout-bar').style.width = `${burnout}%`;
+      document.getElementById('burnout-text').innerText = `BURNOUT ${burnout}%`;
+      drawPlayerFace();
+    }
+
+    function triggerGameOver() {
+      isPlaying = false;
+      document.exitPointerLock();
+      document.getElementById('end-title').innerText = "GAME OVER";
+      document.getElementById('end-subtitle').innerText = `${playerName} a succombé au BURNOUT ultime !`;
+      document.getElementById('end-screen').classList.remove('hidden');
+    }
+
+    function triggerVictory() {
+      isPlaying = false;
+      document.exitPointerLock();
+      document.getElementById('end-title').innerText = "VICTOIRE !";
+      document.getElementById('end-title').style.color = "#2ecc71";
+      document.getElementById('end-subtitle').innerText = `${playerName} a survécu au Niveau 1 et nettoyé l'open-space !`;
+      document.getElementById('end-screen').classList.remove('hidden');
+    }
+
+    // --- GESTION DES MENUS & CONTROLES ---
+    const mainMenu = document.getElementById('main-menu');
+    const menuButtons = document.getElementById('menu-buttons');
+    const newGameForm = document.getElementById('new-game-form');
+    const optionsMenu = document.getElementById('options-menu');
+    const btnResume = document.getElementById('btn-resume');
+    const btnReturnMain = document.getElementById('btn-return-main');
+
+    document.getElementById('btn-new-game').addEventListener('click', () => {
+      menuButtons.classList.add('hidden');
+      newGameForm.classList.remove('hidden');
+    });
+
+    document.getElementById('btn-cancel-new').addEventListener('click', () => {
+      newGameForm.classList.add('hidden');
+      menuButtons.classList.remove('hidden');
+    });
+
+    document.getElementById('btn-start-confirm').addEventListener('click', () => {
+      const inputVal = document.getElementById('player-name-input').value.trim();
+      playerName = inputVal || "Joueur 1";
+      document.getElementById('hud-player-name').innerText = playerName;
+
+      startNewGame();
+    });
+
+    function startNewGame() {
+      // Reset variables
+      burnout = 0;
+      updateBurnoutUI();
+      camera.position.set(0, 1.7, 0);
+
+      // Nettoyer anciens gobelins/fléchettes
+      goblins.forEach(g => { scene.remove(g.mesh); g.bubble.remove(); });
+      goblins = [];
+      darts.forEach(d => scene.remove(d.mesh));
+      darts = [];
+
+      // Re-spawner
+      spawnGoblin(-12, -12);
+      spawnGoblin(12, -6);
+      spawnGoblin(-6, 12);
+      spawnGoblin(18, 18);
+      spawnGoblin(0, 18);
+      updateGoblinHUD();
+
+      newGameForm.classList.add('hidden');
+      mainMenu.classList.add('hidden');
+      btnResume.disabled = false;
+      btnReturnMain.classList.remove('hidden');
+
+      isPlaying = true;
+      isPaused = false;
+      document.body.requestPointerLock();
+    }
+
+    btnResume.addEventListener('click', () => {
+      mainMenu.classList.add('hidden');
+      isPlaying = true;
+      isPaused = false;
+      document.body.requestPointerLock();
+    });
+
+    btnReturnMain.addEventListener('click', () => {
+      // Réinitialise vers le menu titre
+      isPaused = false;
+      btnResume.disabled = false;
+      menuButtons.classList.remove('hidden');
+      optionsMenu.classList.add('hidden');
+      newGameForm.classList.add('hidden');
+      document.querySelector('.title').innerText = "DOOMED";
+    });
+
+    document.getElementById('btn-options').addEventListener('click', () => {
+      menuButtons.classList.add('hidden');
+      optionsMenu.classList.remove('hidden');
+    });
+
+    document.getElementById('btn-close-options').addEventListener('click', () => {
+      optionsMenu.classList.add('hidden');
+      menuButtons.classList.remove('hidden');
+    });
+
+    document.getElementById('btn-restart').addEventListener('click', () => {
+      document.getElementById('end-screen').classList.add('hidden');
+      startNewGame();
+    });
+
+    document.getElementById('btn-end-main-menu').addEventListener('click', () => {
+      document.getElementById('end-screen').classList.add('hidden');
+      mainMenu.classList.remove('hidden');
+      menuButtons.classList.remove('hidden');
+    });
+
+    // Options Handlers
+    document.getElementById('opt-sound').addEventListener('change', (e) => {
+      config.sound = e.target.checked;
+    });
+    document.getElementById('opt-sens').addEventListener('input', (e) => {
+      config.sens = e.target.value * 0.0004;
+    });
+
+    // Configuration des Touches
+    let bindingAction = null;
+    document.querySelectorAll('.key-bind-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.classList.add('binding');
+        btn.innerText = "...";
+        bindingAction = btn.dataset.action;
+      });
+    });
+
+    // --- CONTROLES CLAVIER & SOURIS ---
+    window.addEventListener('keydown', (e) => {
+      if(bindingAction) {
+        config.keys[bindingAction] = e.code;
+        const btn = document.querySelector(`[data-action="${bindingAction}"]`);
+        btn.innerText = e.key.toUpperCase();
+        btn.classList.remove('binding');
+        bindingAction = null;
+        return;
+      }
+
+      if(e.code === 'Escape') {
+        if(isPlaying && !isPaused) {
+          isPaused = true;
+          document.exitPointerLock();
+          mainMenu.classList.remove('hidden');
+          menuButtons.classList.remove('hidden');
+          document.querySelector('.title').innerText = "PAUSE";
+        }
+      }
+
+      if(!isPlaying || isPaused) return;
+
+      if(e.code === config.keys.forward) moveState.forward = true;
+      if(e.code === config.keys.backward) moveState.backward = true;
+      if(e.code === config.keys.left) moveState.left = true;
+      if(e.code === config.keys.right) moveState.right = true;
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if(e.code === config.keys.forward) moveState.forward = false;
+      if(e.code === config.keys.backward) moveState.backward = false;
+      if(e.code === config.keys.left) moveState.left = false;
+      if(e.code === config.keys.right) moveState.right = false;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if(document.pointerLockElement === document.body && isPlaying && !isPaused) {
+        camera.rotation.y -= e.movementX * config.sens;
+      }
+    });
+
+    window.addEventListener('mousedown', (e) => {
+      if(e.button === 0 && isPlaying && !isPaused) {
+        shootNerf();
+      }
+    });
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // --- DÉMARRAGE DU JEU ---
+    window.onload = () => {
+      initEngine();
+      drawPlayerFace();
+      animate();
+    };
+  </script>
+</body>
+</html>
