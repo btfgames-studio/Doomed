@@ -44,7 +44,7 @@
 
     <!-- BOSS HUD -->
     <div id="boss-hud" class="fixed top-12 left-1/2 transform -translate-x-1/2 w-full max-w-lg z-40 hidden flex-col items-center pointer-events-none">
-        <h2 class="pixel-font text-red-500 text-xs md:text-sm drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] mb-2 text-center uppercase tracking-wider">SUPÉRIEUR HIÉRARCHIQUE CHARLES-ÉDOUARD</h2>
+        <h2 class="pixel-font text-red-500 text-sm md:text-lg drop-shadow-[0_0_8px_rgba(239,68,68,0.8)] mb-2 text-center">SUPÉRIEUR HIÉRARCHIQUE CHARLES-ÉDOUARD</h2>
         <div class="w-[90%] md:w-full bg-slate-950 h-6 border-2 border-red-700/80 relative rounded shadow-[0_0_15px_rgba(239,68,68,0.5)]">
             <div id="boss-hp-fill" class="h-full bg-gradient-to-r from-red-800 to-red-500 w-full transition-all duration-200"></div>
             <div id="boss-hp-text" class="absolute inset-0 flex items-center justify-center text-xs md:text-sm cyber-font font-bold text-white drop-shadow-md tracking-widest">20 / 20 HP</div>
@@ -97,7 +97,7 @@
         </div>
     </div>
 
-    <!-- MAIN MENU (Z-50) -->
+    <!-- MAIN MENU -->
     <div id="main-menu" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4">
         <div class="max-w-xl w-full cyber-card rounded-2xl p-6 md:p-8 text-center relative overflow-hidden">
             <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-cyan-500 via-amber-400 to-red-500"></div>
@@ -111,7 +111,37 @@
         </div>
     </div>
 
-    <!-- PAUSE MENU (Z-50) -->
+    <!-- NAME MODAL -->
+    <div id="name-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="max-w-md w-full cyber-card rounded-2xl p-6 text-center">
+            <h2 class="pixel-font text-xl text-yellow-400 mb-2">NOUVELLE PARTIE</h2>
+            <p class="text-gray-300 text-sm mb-4 cyber-font">Entrez le nom de votre agent IT :</p>
+            <input type="text" id="player-name-input" value="Joueur 1" maxlength="16" class="w-full bg-slate-950 border-2 border-cyan-500/80 rounded-xl px-4 py-3 text-center cyber-font text-cyan-300 text-lg focus:outline-none focus:border-cyan-400 mb-6 shadow-[inset_0_0_10px_rgba(0,0,0,0.8)]">
+            <div class="flex gap-3 justify-center">
+                <button id="btn-cancel-name" class="cyber-font bg-slate-800 hover:bg-slate-700 text-gray-300 py-3 px-5 rounded-xl text-sm font-bold cursor-pointer">ANNULER</button>
+                <button id="btn-confirm-name" class="menu-btn cyber-font py-3 px-6 rounded-xl text-white font-bold text-sm">VALIDER & JOUER</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TACTICAL MAP (M KEY) -->
+    <div id="tactical-map-screen" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-[55] flex flex-col items-center justify-center p-4 hidden">
+        <div class="max-w-3xl w-full cyber-card rounded-2xl p-6 shadow-[0_0_30px_rgba(6,182,212,0.3)]">
+            <h2 class="pixel-font text-2xl text-cyan-400 mb-4 text-center">CARTE TACTIQUE</h2>
+            <div id="map-container" class="w-full aspect-square md:h-[60vh] bg-slate-900 border-2 border-slate-700 rounded-lg relative flex items-center justify-center">
+                <canvas id="map-canvas" class="block w-full h-full drop-shadow-md"></canvas>
+            </div>
+            <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs md:text-sm cyber-font text-gray-400 text-center">
+                <div><span class="inline-block w-3 h-3 bg-green-500 rounded-full align-middle mr-1"></span> Joueur</div>
+                <div><span class="inline-block w-3 h-3 bg-red-500 rounded-full align-middle mr-1"></span> Gobelin / <span class="text-purple-500 font-bold">Boss</span></div>
+                <div><span class="inline-block w-3 h-3 bg-emerald-400 rounded-sm align-middle mr-1"></span> Pack Soin</div>
+                <div><span class="inline-block w-3 h-3 bg-yellow-500 rounded-sm align-middle mr-1"></span> Ascenseur</div>
+            </div>
+            <p class="text-center text-sm text-yellow-500 mt-4 cyber-font animate-pulse">Appuyez sur M ou Échap pour fermer et reprendre la mission</p>
+        </div>
+    </div>
+
+    <!-- PAUSE MENU -->
     <div id="pause-menu" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 hidden">
         <div class="max-w-xl w-full cyber-card border-cyan-500/80 rounded-2xl p-6 md:p-8 text-center relative overflow-hidden">
             <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500"></div>
@@ -125,21 +155,8 @@
         </div>
     </div>
 
-    <!-- NAME MODAL (Z-[65]) -->
-    <div id="name-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-[65] flex items-center justify-center p-4 hidden">
-        <div class="max-w-md w-full cyber-card rounded-2xl p-6 text-center">
-            <h2 class="pixel-font text-xl text-yellow-400 mb-2">NOUVELLE PARTIE</h2>
-            <p class="text-gray-300 text-sm mb-4 cyber-font">Entrez le nom de votre agent IT :</p>
-            <input type="text" id="player-name-input" value="Joueur 1" maxlength="16" class="w-full bg-slate-950 border-2 border-cyan-500/80 rounded-xl px-4 py-3 text-center cyber-font text-cyan-300 text-lg focus:outline-none focus:border-cyan-400 mb-6 shadow-[inset_0_0_10px_rgba(0,0,0,0.8)]">
-            <div class="flex gap-3 justify-center">
-                <button id="btn-cancel-name" class="cyber-font bg-slate-800 hover:bg-slate-700 text-gray-300 py-3 px-5 rounded-xl text-sm font-bold cursor-pointer">ANNULER</button>
-                <button id="btn-confirm-name" class="menu-btn cyber-font py-3 px-6 rounded-xl text-white font-bold text-sm">VALIDER & JOUER</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- OPTIONS MODAL (Z-[70]) -->
-    <div id="options-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[70] flex items-center justify-center p-4 hidden">
+    <!-- OPTIONS MODAL -->
+    <div id="options-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] flex items-center justify-center p-4 hidden">
         <div class="max-w-2xl w-full cyber-card rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto border-yellow-500/80">
             <h2 class="pixel-font text-xl md:text-2xl text-yellow-400 mb-6 text-center">OPTIONS DU JEU</h2>
             <div class="space-y-6">
@@ -187,33 +204,16 @@
         </div>
     </div>
 
-    <!-- TACTICAL MAP (Z-[80]) -->
-    <div id="tactical-map-screen" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-[80] flex flex-col items-center justify-center p-4 hidden">
-        <div class="max-w-3xl w-full cyber-card rounded-2xl p-6 shadow-[0_0_30px_rgba(6,182,212,0.3)]">
-            <h2 class="pixel-font text-2xl text-cyan-400 mb-4 text-center">CARTE TACTIQUE</h2>
-            <div id="map-container" class="w-full aspect-square md:h-[60vh] bg-slate-900 border-2 border-slate-700 rounded-lg relative flex items-center justify-center">
-                <canvas id="map-canvas" class="block w-full h-full drop-shadow-md"></canvas>
-            </div>
-            <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs md:text-sm cyber-font text-gray-400 text-center">
-                <div><span class="inline-block w-3 h-3 bg-green-500 rounded-full align-middle mr-1"></span> Joueur</div>
-                <div><span class="inline-block w-3 h-3 bg-red-500 rounded-full align-middle mr-1"></span> Gobelin / <span class="text-purple-500 font-bold">Boss</span></div>
-                <div><span class="inline-block w-3 h-3 bg-emerald-400 rounded-sm align-middle mr-1"></span> Pack Soin</div>
-                <div><span class="inline-block w-3 h-3 bg-yellow-500 rounded-sm align-middle mr-1"></span> Ascenseur</div>
-            </div>
-            <p class="text-center text-sm text-yellow-500 mt-4 cyber-font animate-pulse">Appuyez sur M ou Échap pour fermer et reprendre la mission</p>
-        </div>
-    </div>
-
-    <!-- LEVEL TRANSITION SCREEN (Z-[85]) -->
-    <div id="level-transition-screen" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-[85] flex flex-col items-center justify-center hidden">
+    <!-- LEVEL TRANSITION SCREEN -->
+    <div id="level-transition-screen" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-[60] flex flex-col items-center justify-center hidden">
         <div class="cyber-card p-10 text-center rounded-2xl border-4 border-emerald-500 shadow-[0_0_40px_rgba(16,185,129,0.5)]">
             <h1 id="level-cleared-text" class="pixel-font text-3xl md:text-5xl text-emerald-400 mb-6 animate-pulse">NIVEAU PURIFIÉ</h1>
             <p class="cyber-font text-gray-300 text-xl tracking-widest mt-4">TRANSFERT PAR L'ASCENSEUR...</p>
         </div>
     </div>
 
-    <!-- GAME OVER SCREEN (Z-[90]) -->
-    <div id="gameover-screen" class="fixed inset-0 bg-red-950/90 backdrop-blur-md z-[90] flex flex-col items-center justify-center p-4 text-center hidden">
+    <!-- GAME OVER SCREEN -->
+    <div id="gameover-screen" class="fixed inset-0 bg-red-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 text-center hidden">
         <div class="max-w-md bg-slate-950 border-4 border-red-600 rounded-2xl p-6 md:p-8 shadow-[0_0_50px_rgba(239,68,68,0.5)]">
             <h1 class="pixel-font text-2xl md:text-3xl text-red-500 mb-4 animate-pulse">BURNOUT CRITIQUE !</h1>
             <p id="gameover-desc" class="text-gray-300 mb-6 text-base cyber-font">Vous avez succombé... L'open-space a eu raison de votre santé mentale !</p>
@@ -224,12 +224,12 @@
         </div>
     </div>
 
-    <!-- VICTORY SCREEN (Z-[90]) -->
-    <div id="victory-screen" class="fixed inset-0 bg-emerald-950/90 backdrop-blur-md z-[90] flex flex-col items-center justify-center p-4 text-center hidden">
+    <!-- VICTORY SCREEN -->
+    <div id="victory-screen" class="fixed inset-0 bg-emerald-950/90 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 text-center hidden">
         <div class="max-w-md bg-slate-950 border-4 border-emerald-500 rounded-2xl p-6 md:p-8 shadow-[0_0_50px_rgba(16,185,129,0.5)]">
             <h1 class="pixel-font text-2xl md:text-3xl text-emerald-400 mb-2">JEU TERMINÉ !</h1>
             <h2 class="text-yellow-400 font-bold mb-4 cyber-font tracking-widest text-lg">OPEN-SPACE PACIFIÉ</h2>
-            <p class="text-gray-300 mb-6 text-base cyber-font">Vous avez survécu aux étages de l'enfer corporatif et vaincu le Supérieur. Votre santé mentale est tirée d'affaire !</p>
+            <p class="text-gray-300 mb-6 text-base cyber-font">Vous avez survécu aux 6 étages de l'enfer corporatif et vaincu le Supérieur. Votre santé mentale est tirée d'affaire !</p>
             <div class="flex flex-col gap-3">
                 <button id="victory-btn" class="menu-btn cyber-font bg-gradient-to-r from-emerald-500 to-emerald-600 border-emerald-400 text-black py-3.5 px-6 rounded-xl font-extrabold text-base">NOUVELLE PARTIE</button>
                 <button id="victory-main-menu-btn" class="cyber-font bg-slate-900 hover:bg-slate-800 text-gray-200 font-bold py-3 px-6 rounded-xl text-sm border border-slate-700">MENU PRINCIPAL</button>
@@ -300,8 +300,8 @@
             "WW........W.VVV.W.....W",
             "WW.WWWWWWWW.VVV.WWWWWWW",
             "WW....................W",
-            "WWWWWWWWWWWWWWW.WW]WW",
-            "WWWWWWWWWWWWWWW.WWEWW",
+            "WWWWWWWWWWWWWWWWW.WW]WW",
+            "WWWWWWWWWWWWWWWWW.WWEWW",
             "WWWWWWWWWWWWWWWWWWWWWWW"
         ];
         const MAP_map4 = [
@@ -426,27 +426,14 @@
         let exitZone = new THREE.Vector3();
         let raycaster = new THREE.Raycaster();
 
-        // Performance Optimization: Vector Pooling
-        const pool_m = new THREE.Vector3();
-        const pool_fw = new THREE.Vector3();
-        const pool_sd = new THREE.Vector3();
-        const pool_nx = new THREE.Vector3();
-        const pool_chaseDir = new THREE.Vector3();
-        const pool_bubbleWorldPos = new THREE.Vector3();
-        const pool_dirToBubble = new THREE.Vector3();
-        const pool_startPos = new THREE.Vector3();
-        let frameCount = 0;
-
         class AudioEngine {
             constructor() { this.ctx = null; }
             init() { 
-                try {
-                    if (!this.ctx) { 
-                        const AudioCtx = window.AudioContext || window.webkitAudioContext; 
-                        if (AudioCtx) this.ctx = new AudioCtx(); 
-                    } 
-                    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-                } catch(e) { console.warn("Audio Context init warning:", e); }
+                if (!this.ctx) { 
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext; 
+                    if (AudioCtx) this.ctx = new AudioCtx(); 
+                } 
+                if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); 
             }
             playTone(type, freqStart, freqEnd, duration, volStart) {
                 if (!gameState.soundEnabled || !this.ctx) return;
@@ -522,10 +509,6 @@
                     ctx.fillStyle = '#06b6d4'; ctx.fillRect(0, Math.floor(h*0.73), w, 8); 
                     ctx.fillStyle = '#64748b'; ctx.fillRect(0, Math.floor(h*0.745), w, 2); 
                 }),
-                winTexture: createTex((ctx, w, h) => {
-                    ctx.fillStyle = '#0284c7'; ctx.fillRect(0, 0, w, h);
-                    ctx.fillStyle = '#38bdf8'; ctx.fillRect(10, 10, w - 20, h - 20);
-                }),
                 elevatorWallTexture: createTex((ctx, w, h) => {
                     ctx.fillStyle = '#64748b'; ctx.fillRect(0, 0, w, h);
                     ctx.fillStyle = '#475569';
@@ -566,25 +549,16 @@
             };
         }
 
-        // DOOM STYLE FACE RENDERER WITH CACHING
-        const faceAnimState = { isHurt: false, hurtTimer: 0, lookTimer: 0, lookDir: 0, lastDmgStatus: -1, lastLookDir: -1, lastIsHurt: false };
+        // DOOM STYLE FACE RENDERER
+        const faceAnimState = { isHurt: false, hurtTimer: 0, lookTimer: 0, lookDir: 0, lastDmgStatus: -1 };
         function drawPlayerFace(burnoutPct) {
             const canvas = document.getElementById('player-face'); if (!canvas) return;
-            
-            let dmg = 0; if (burnoutPct >= 75) dmg = 3; else if (burnoutPct >= 50) dmg = 2; else if (burnoutPct >= 25) dmg = 1;
-            let lx = faceAnimState.isHurt ? 0 : faceAnimState.lookDir;
-
-            if (faceAnimState.lastDmgStatus === dmg && faceAnimState.lastLookDir === lx && faceAnimState.lastIsHurt === faceAnimState.isHurt) {
-                return;
-            }
-            faceAnimState.lastLookDir = lx;
-            faceAnimState.lastIsHurt = faceAnimState.isHurt;
-
             const ctx = canvas.getContext('2d'); const w = canvas.width; const h = canvas.height;
             ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, w, h);
             const px = w / 16;
             const drawRect = (x, y, w_px, h_px, color) => { ctx.fillStyle = color; ctx.fillRect(Math.floor(x*px), Math.floor(y*px), Math.ceil(w_px*px), Math.ceil(h_px*px)); };
 
+            let dmg = 0; if (burnoutPct >= 75) dmg = 3; else if (burnoutPct >= 50) dmg = 2; else if (burnoutPct >= 25) dmg = 1;
             let skinColor = dmg === 3 ? '#cbd5e1' : '#fcdbb6'; let skinDark = dmg === 3 ? '#94a3b8' : '#e7c39c';
             let hairColor = '#3f3f46'; let frameColor = '#0f172a'; let lensColor = '#67e8f9'; let bloodColor = '#b91c1c';
 
@@ -592,6 +566,7 @@
             drawRect(4, 1, 8, 2, hairColor); drawRect(3, 2, 1, 5, hairColor); drawRect(12, 2, 1, 5, hairColor); drawRect(4, 3, 2, 1, hairColor); drawRect(10, 3, 2, 1, hairColor);
             drawRect(3, 6, 4, 4, frameColor); drawRect(9, 6, 4, 4, frameColor); drawRect(7, 7, 2, 1, frameColor);
 
+            let lx = faceAnimState.isHurt ? 0 : faceAnimState.lookDir;
             let pY = 7; let lPx = lx === 1 ? 5 : 4; let rPx = lx === -1 ? 10 : 11;
 
             if (dmg < 3) { drawRect(4, 7, 2, 2, lensColor); drawRect(10, 7, 2, 2, lensColor); drawRect(lPx, pY, 1, 1, '#000'); drawRect(rPx, pY, 1, 1, '#000'); }
@@ -609,16 +584,14 @@
             if (faceAnimState.lastDmgStatus !== dmg) {
                 faceAnimState.lastDmgStatus = dmg;
                 const statusEl = document.getElementById('player-status');
-                if (statusEl) {
-                    if (dmg === 0) { statusEl.textContent = 'SEREIN'; statusEl.className = 'text-[9px] cyber-font text-emerald-400 mt-0.5 tracking-wider'; }
-                    else if (dmg === 1) { statusEl.textContent = 'STRESSÉ'; statusEl.className = 'text-[9px] cyber-font text-yellow-400 mt-0.5 tracking-wider'; }
-                    else if (dmg === 2) { statusEl.textContent = 'ÉPUISÉ'; statusEl.className = 'text-[9px] cyber-font text-orange-500 mt-0.5 tracking-wider'; }
-                    else { statusEl.textContent = 'BURNOUT!'; statusEl.className = 'text-[9px] cyber-font text-red-500 font-bold mt-0.5 tracking-wider animate-pulse'; }
-                }
+                if (dmg === 0) { statusEl.textContent = 'SEREIN'; statusEl.className = 'text-[9px] cyber-font text-emerald-400 mt-0.5 tracking-wider'; }
+                else if (dmg === 1) { statusEl.textContent = 'STRESSÉ'; statusEl.className = 'text-[9px] cyber-font text-yellow-400 mt-0.5 tracking-wider'; }
+                else if (dmg === 2) { statusEl.textContent = 'ÉPUISÉ'; statusEl.className = 'text-[9px] cyber-font text-orange-500 mt-0.5 tracking-wider'; }
+                else { statusEl.textContent = 'BURNOUT!'; statusEl.className = 'text-[9px] cyber-font text-red-500 font-bold mt-0.5 tracking-wider animate-pulse'; }
             }
         }
 
-        // HIGH DEFINITION SPEECH BUBBLE GENERATOR
+        // HIGH DEFINITION HIGH CONTRAST SPEECH BUBBLE GENERATOR
         function createSpeechBubbleSprite(text) {
             const canvas = document.createElement('canvas'); 
             canvas.width = 512; canvas.height = 256; 
@@ -697,6 +670,7 @@
             const gunTip = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.16, 8), new THREE.MeshStandardMaterial({ color: 0xfacc15 })); gunTip.rotation.x = Math.PI/2; gunTip.position.set(0, 0.02, -0.32); gunGroup.add(gunTip);
             gunGroup.position.set(0.48, 0.85, 0.42); group.add(gunGroup);
 
+            // Initial invisible bubble for later use
             const bubbleMesh = createSpeechBubbleSprite("");
             bubbleMesh.visible = false;
             group.add(bubbleMesh);
@@ -714,19 +688,19 @@
             return { mesh: group, pos: new THREE.Vector3(x, 0.4, z), active: true };
         }
 
-        function createElevatorDoor(x, z, wallHeight = 3.8) {
+        function createElevatorDoor(x, z) {
             const group = new THREE.Group();
-            const doorGeo = new THREE.BoxGeometry(TILE_SIZE/2, wallHeight, 0.4);
+            const doorGeo = new THREE.BoxGeometry(TILE_SIZE/2, 3.8, 0.4);
             const doorMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.2 });
-            const lDoor = new THREE.Mesh(doorGeo, doorMat); lDoor.position.set(-TILE_SIZE/4, wallHeight / 2, 0); group.add(lDoor);
-            const rDoor = new THREE.Mesh(doorGeo, doorMat); rDoor.position.set(TILE_SIZE/4, wallHeight / 2, 0); group.add(rDoor);
+            const lDoor = new THREE.Mesh(doorGeo, doorMat); lDoor.position.set(-TILE_SIZE/4, 1.9, 0); group.add(lDoor);
+            const rDoor = new THREE.Mesh(doorGeo, doorMat); rDoor.position.set(TILE_SIZE/4, 1.9, 0); group.add(rDoor);
             group.position.set(x, 0, z); scene.add(group);
             return { group: group, leftDoor: lDoor, rightDoor: rDoor, baseX: x, baseZ: z, isOpen: false, openAmt: 0 };
         }
 
-        function spawnWall(x, z, tex, isWin = false, wallHeight = 3.8) {
-            const mesh = new THREE.Mesh(new THREE.BoxGeometry(TILE_SIZE, wallHeight, TILE_SIZE), isWin ? new THREE.MeshBasicMaterial({ map: tex }) : new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }));
-            mesh.position.set(x, wallHeight / 2, z); scene.add(mesh); collidableObjects.push(mesh);
+        function spawnWall(x, z, tex, isWin=false) {
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(TILE_SIZE, 3.8, TILE_SIZE), isWin ? new THREE.MeshBasicMaterial({ map: tex }) : new THREE.MeshStandardMaterial({ map: tex, roughness: 0.6 }));
+            mesh.position.set(x, 1.9, z); scene.add(mesh); collidableObjects.push(mesh);
         }
         function spawnOfficeDesk(x, z) {
             const group = new THREE.Group();
@@ -736,20 +710,21 @@
             const l2 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.9, 1.3), legMat); l2.position.set(1.1, 0.45, 0); group.add(l2);
             const mon = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.6, 0.08), new THREE.MeshStandardMaterial({ color: 0x0f172a })); mon.position.set(0, 1.35, -0.3); group.add(mon);
             const scr = new THREE.Mesh(new THREE.PlaneGeometry(1.02, 0.52), new THREE.MeshBasicMaterial({ map: textures.screenTexture })); scr.position.set(0, 1.35, -0.25); group.add(scr);
+            const light = new THREE.PointLight(0x06b6d4, 0.8, 3); light.position.set(0, 1.35, -0.1); group.add(light);
             group.position.set(x, 0, z); scene.add(group);
             const col = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.8, 1.5), new THREE.MeshBasicMaterial({visible:false})); col.position.set(x, 0.9, z); scene.add(col); collidableObjects.push(col);
         }
-        function spawnServer(x, z, wallHeight = 3.8) {
-            const mesh = new THREE.Mesh(new THREE.BoxGeometry(2.8, wallHeight, 2.8), new THREE.MeshStandardMaterial({ map: textures.srvTexture, roughness: 0.5 }));
-            mesh.position.set(x, wallHeight / 2, z); scene.add(mesh); collidableObjects.push(mesh);
+        function spawnServer(x, z) {
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(2.8, 3.8, 2.8), new THREE.MeshStandardMaterial({ map: textures.srvTexture, roughness: 0.5 }));
+            mesh.position.set(x, 1.9, z); scene.add(mesh); collidableObjects.push(mesh);
         }
-        function spawnElevatorFloor(x, z, isExit = false, wallHeight = 3.8) {
+        function spawnElevatorFloor(x, z, isExit = false) {
             const mesh = new THREE.Mesh(new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE), new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8 }));
             mesh.rotation.x = -Math.PI/2; mesh.position.set(x, 0.01, z); scene.add(mesh);
 
             if (isExit) {
-                const backWall = new THREE.Mesh(new THREE.PlaneGeometry(TILE_SIZE, wallHeight), new THREE.MeshStandardMaterial({ map: textures.elevatorWallTexture, roughness: 0.3 }));
-                backWall.position.set(x, wallHeight / 2, z + TILE_SIZE/2 - 0.05); backWall.rotation.y = Math.PI; scene.add(backWall);
+                const backWall = new THREE.Mesh(new THREE.PlaneGeometry(TILE_SIZE, 3.8), new THREE.MeshStandardMaterial({ map: textures.elevatorWallTexture, roughness: 0.3 }));
+                backWall.position.set(x, 1.9, z + TILE_SIZE/2 - 0.05); backWall.rotation.y = Math.PI; scene.add(backWall);
             }
         }
 
@@ -777,7 +752,6 @@
         function buildLevel() {
             const lvlData = LEVELS[gameState.currentLevel]; const map = lvlData.map;
             const R = map.length; const C = map[0].length;
-            const wallHeight = lvlData.isBoss ? 7.0 : 3.8;
             
             for (let i = scene.children.length - 1; i >= 0; i--) {
                 const c = scene.children[i]; if (c !== camera && c.type !== 'AmbientLight' && c.type !== 'DirectionalLight') scene.remove(c);
@@ -790,21 +764,21 @@
             floor.rotation.x = -Math.PI/2; floor.position.set((C*TILE_SIZE)/2, 0, (R*TILE_SIZE)/2); scene.add(floor);
             
             const ceil = new THREE.Mesh(new THREE.PlaneGeometry(C*TILE_SIZE, R*TILE_SIZE), new THREE.MeshBasicMaterial({ map: textures.ceilTexture }));
-            ceil.rotation.x = Math.PI/2; ceil.position.set((C*TILE_SIZE)/2, wallHeight, (R*TILE_SIZE)/2); scene.add(ceil);
+            ceil.rotation.x = Math.PI/2; ceil.position.set((C*TILE_SIZE)/2, 3.8, (R*TILE_SIZE)/2); scene.add(ceil);
             
             const floorTiles = [];
             
             for (let r=0; r<R; r++) {
                 for (let c=0; c<C; c++) {
                     const ch = map[r][c]; const x = c*TILE_SIZE + TILE_SIZE/2; const z = r*TILE_SIZE + TILE_SIZE/2;
-                    if (ch === 'W') spawnWall(x, z, textures.wallTexture, false, wallHeight);
-                    else if (ch === 'O') spawnWall(x, z, textures.winTexture, true, wallHeight);
+                    if (ch === 'W') spawnWall(x, z, textures.wallTexture, false);
+                    else if (ch === 'O') spawnWall(x, z, textures.winTexture, true);
                     else if (ch === 'D') { spawnOfficeDesk(x, z); props.push({x:x, z:z, radius:1.5}); }
-                    else if (ch === 'V') { spawnServer(x, z, wallHeight); props.push({x:x, z:z, radius:1.8}); }
-                    else if (ch === 'S') { spawnElevatorFloor(x, z, false, wallHeight); player.pos.set(x, 1.6, z); camera.position.copy(player.pos); player.angleY = Math.PI; player.angleX = 0; }
-                    else if (ch === 'E') { spawnElevatorFloor(x, z, true, wallHeight); exitZone.set(x, 1.6, z); }
-                    else if (ch === '[') elevators.push(createElevatorDoor(x, z, wallHeight));
-                    else if (ch === ']') elevators.push(createElevatorDoor(x, z, wallHeight));
+                    else if (ch === 'V') { spawnServer(x, z); props.push({x:x, z:z, radius:1.8}); }
+                    else if (ch === 'S') { spawnElevatorFloor(x, z, false); player.pos.set(x, 1.6, z); camera.position.copy(player.pos); player.angleY = Math.PI; player.angleX = 0; }
+                    else if (ch === 'E') { spawnElevatorFloor(x, z, true); exitZone.set(x, 1.6, z); }
+                    else if (ch === '[') elevators.push(createElevatorDoor(x, z));
+                    else if (ch === ']') elevators.push(createElevatorDoor(x, z));
                     else if (ch === 'M') { medkits.push(createMedkit(x, z)); }
                     else if (ch === 'B') { spawnGoblin(x, z, lvlData.goblinHP, true); }
                     else if (ch === '.' || ch === 'G') floorTiles.push({x, z});
@@ -821,14 +795,16 @@
             if (lvlData.isBoss) {
                 document.getElementById('boss-hud').classList.remove('hidden');
                 document.getElementById('level-indicator').textContent = "COMBAT DE BOSS";
-                document.getElementById('level-indicator').className = 'fixed top-4 left-1/2 transform -translate-x-1/2 pixel-font text-red-500 text-lg md:text-xl drop-shadow-[0_0_10px_rgba(239,68,68,0.8)] z-30 pointer-events-none text-center animate-pulse';
+                document.getElementById('level-indicator').classList.add('text-red-500', 'animate-pulse');
+                document.getElementById('level-indicator').classList.remove('text-yellow-400');
                 document.getElementById('boss-hp-fill').style.width = '100%';
                 document.getElementById('boss-hp-text').textContent = `${lvlData.goblinHP} / ${lvlData.goblinHP} HP`;
                 document.getElementById('goblin-count').textContent = `1/1`;
             } else {
                 document.getElementById('boss-hud').classList.add('hidden');
                 document.getElementById('level-indicator').textContent = `NIVEAU ${gameState.currentLevel + 1}`;
-                document.getElementById('level-indicator').className = 'fixed top-4 left-1/2 transform -translate-x-1/2 pixel-font text-yellow-400 text-lg md:text-xl drop-shadow-[0_0_10px_rgba(234,179,8,0.8)] z-30 pointer-events-none text-center';
+                document.getElementById('level-indicator').classList.remove('text-red-500', 'animate-pulse');
+                document.getElementById('level-indicator').classList.add('text-yellow-400');
                 document.getElementById('goblin-count').textContent = `${enemies.length}/${lvlData.goblins}`;
             }
 
@@ -870,13 +846,13 @@
                     ctx.fillStyle = (ch === 'W') ? '#1e293b' : '#0f172a';
                     ctx.fillRect(offsetX + c*cellSize, offsetY + r*cellSize, cellSize + 0.5, cellSize + 0.5);
                     if (ch === 'E' || ch === ']') {
-                        ctx.fillStyle = '#eab308';
+                        ctx.fillStyle = '#eab308'; // Exit
                         ctx.fillRect(offsetX + c*cellSize, offsetY + r*cellSize, cellSize + 0.5, cellSize + 0.5);
                     }
                 }
             }
 
-            // Draw obstacles
+            // Draw obstacles (Props)
             ctx.fillStyle = '#334155';
             for (let p of props) {
                 const c = p.x / TILE_SIZE; const r = p.z / TILE_SIZE;
@@ -895,7 +871,7 @@
             for (let e of enemies) {
                 if(!e.alive) continue;
                 const c = e.pos.x / TILE_SIZE; const r = e.pos.z / TILE_SIZE;
-                ctx.fillStyle = e.isBoss ? '#a855f7' : '#ef4444';
+                ctx.fillStyle = e.isBoss ? '#a855f7' : '#ef4444'; // Purple for Boss
                 const radius = e.isBoss ? cellSize/1.5 : cellSize/2.5;
                 ctx.beginPath(); ctx.arc(offsetX + c*cellSize, offsetY + r*cellSize, radius, 0, Math.PI*2); ctx.fill();
             }
@@ -933,15 +909,14 @@
             const dartGroup = new THREE.Group();
             const body = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.3, 8), new THREE.MeshBasicMaterial({ color: 0xfacc15 })); body.rotation.x = Math.PI/2; dartGroup.add(body);
             const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.025, 0.06, 8), new THREE.MeshBasicMaterial({ color: 0xea580c })); tip.rotation.x = Math.PI/2; tip.position.set(0, 0, -0.16); dartGroup.add(tip);
+            const targetPos = camera.position.clone(); const dir = new THREE.Vector3().subVectors(targetPos, goblin.pos).normalize();
             
-            pool_chaseDir.subVectors(camera.position, goblin.pos).normalize();
+            const startPos = goblin.pos.clone();
+            startPos.y += goblin.isBoss ? 0.6 : 0.2; // Adjust projectile origin for boss height
+            dartGroup.position.copy(startPos);
             
-            pool_startPos.copy(goblin.pos);
-            pool_startPos.y += goblin.isBoss ? 0.6 : 0.2;
-            dartGroup.position.copy(pool_startPos);
-            
-            dartGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), pool_chaseDir);
-            scene.add(dartGroup); enemyProjectiles.push({ mesh: dartGroup, dir: pool_chaseDir.clone(), speed: 0.48, life: 110 });
+            dartGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), dir);
+            scene.add(dartGroup); enemyProjectiles.push({ mesh: dartGroup, dir: dir, speed: 0.48, life: 110 });
         }
 
         function checkCollision(x, z) {
@@ -955,19 +930,19 @@
 
         function updatePlayerPosition() {
             if (gameState.isPaused || gameState.transitioning) return;
-            pool_m.set(0, 0, 0);
-            if (keysPressed[gameState.keyBinds.forward[0]] || keysPressed[gameState.keyBinds.forward[1]]) pool_m.z -= 1;
-            if (keysPressed[gameState.keyBinds.backward[0]]) pool_m.z += 1;
-            if (keysPressed[gameState.keyBinds.left[0]] || keysPressed[gameState.keyBinds.left[1]]) pool_m.x -= 1;
-            if (keysPressed[gameState.keyBinds.right[0]]) pool_m.x += 1;
-            pool_m.normalize();
+            const m = new THREE.Vector3();
+            if (keysPressed[gameState.keyBinds.forward[0]] || keysPressed[gameState.keyBinds.forward[1]]) m.z -= 1;
+            if (keysPressed[gameState.keyBinds.backward[0]]) m.z += 1;
+            if (keysPressed[gameState.keyBinds.left[0]] || keysPressed[gameState.keyBinds.left[1]]) m.x -= 1;
+            if (keysPressed[gameState.keyBinds.right[0]]) m.x += 1;
+            m.normalize();
             camera.quaternion.setFromEuler(new THREE.Euler(player.angleX, player.angleY, 0, 'YXZ'));
-            if (pool_m.lengthSq() > 0) {
-                pool_fw.set(0, 0, -1).applyAxisAngle(new THREE.Vector3(0,1,0), player.angleY);
-                pool_sd.set(1, 0, 0).applyAxisAngle(new THREE.Vector3(0,1,0), player.angleY);
-                pool_nx.copy(player.pos).addScaledVector(pool_fw, -pool_m.z * player.speed).addScaledVector(pool_sd, pool_m.x * player.speed);
-                if (!checkCollision(pool_nx.x, player.pos.z)) player.pos.x = pool_nx.x;
-                if (!checkCollision(player.pos.x, pool_nx.z)) player.pos.z = pool_nx.z;
+            if (m.length() > 0) {
+                const fw = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0,1,0), player.angleY);
+                const sd = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0,1,0), player.angleY);
+                const nx = player.pos.clone().addScaledVector(fw, -m.z * player.speed).addScaledVector(sd, m.x * player.speed);
+                if (!checkCollision(nx.x, player.pos.z)) player.pos.x = nx.x;
+                if (!checkCollision(player.pos.x, nx.z)) player.pos.z = nx.z;
             }
             camera.position.copy(player.pos);
             if (nerfGunMesh) nerfGunMesh.position.z += (-0.5 - nerfGunMesh.position.z) * 0.2;
@@ -1020,7 +995,6 @@
         function gameLoop() {
             requestAnimationFrame(gameLoop);
             if (gameState.isPaused) return;
-            frameCount++;
             updatePlayerPosition();
 
             // ELEVATOR DOOR ANIMATION
@@ -1103,13 +1077,14 @@
                     if (now - e.deathTime > 10000) {
                         scene.remove(e.model.mesh);
                         enemies.splice(i, 1);
-                    } else if (e.model.bubbleMesh && e.model.bubbleMesh.visible && frameCount % 15 === 0) {
-                        e.model.bubbleMesh.getWorldPosition(pool_bubbleWorldPos);
-                        pool_dirToBubble.subVectors(pool_bubbleWorldPos, camera.position);
-                        const distanceToBubble = pool_dirToBubble.length();
-                        pool_dirToBubble.normalize();
+                    } else if (e.model.bubbleMesh && e.model.bubbleMesh.visible) {
+                        const bubbleWorldPos = new THREE.Vector3();
+                        e.model.bubbleMesh.getWorldPosition(bubbleWorldPos);
+                        const dirToBubble = new THREE.Vector3().subVectors(bubbleWorldPos, camera.position);
+                        const distanceToBubble = dirToBubble.length();
+                        dirToBubble.normalize();
                         
-                        raycaster.set(camera.position, pool_dirToBubble);
+                        raycaster.set(camera.position, dirToBubble);
                         const intersects = raycaster.intersectObjects(collidableObjects, false);
                         
                         if (intersects.length > 0 && intersects[0].distance < distanceToBubble - 0.5) {
@@ -1131,10 +1106,9 @@
                     
                     const minChasedist = e.isBoss ? 4.0 : 2.2;
                     if (dist > minChasedist) {
-                        pool_chaseDir.subVectors(player.pos, e.pos).normalize();
+                        const chaseDir = new THREE.Vector3().subVectors(player.pos, e.pos).normalize();
                         const speed = e.isBoss ? 0.06 : 0.045;
-                        const nx = e.pos.x + pool_chaseDir.x * speed; 
-                        const nz = e.pos.z + pool_chaseDir.z * speed;
+                        const nx = e.pos.x + chaseDir.x * speed; const nz = e.pos.z + chaseDir.z * speed;
                         if (!checkCollision(nx, e.pos.z)) e.pos.x = nx;
                         if (!checkCollision(e.pos.x, nz)) e.pos.z = nz;
                         e.model.mesh.position.set(e.pos.x, 0, e.pos.z);
@@ -1218,12 +1192,8 @@
             const mapScreen = document.getElementById('tactical-map-screen');
             const gameCanvas = document.getElementById('game-canvas');
 
-            function safeAudioInit() {
-                try { audio.init(); } catch(err) { console.warn("Audio init prevented:", err); }
-            }
-
             function startGameWithLock() {
-                safeAudioInit();
+                audio.init();
                 mainMenu.classList.add('hidden');
                 pauseMenu.classList.add('hidden');
                 nameModal.classList.add('hidden');
@@ -1234,41 +1204,41 @@
             }
 
             document.getElementById('btn-new-game').addEventListener('click', (e) => {
-                e.preventDefault(); e.stopPropagation(); safeAudioInit(); nameModal.classList.remove('hidden');
+                e.stopPropagation(); audio.init(); nameModal.classList.remove('hidden');
             });
             document.getElementById('btn-cancel-name').addEventListener('click', (e) => {
-                e.preventDefault(); e.stopPropagation(); nameModal.classList.add('hidden');
+                e.stopPropagation(); nameModal.classList.add('hidden');
             });
             document.getElementById('btn-confirm-name').addEventListener('click', (e) => {
-                e.preventDefault(); e.stopPropagation(); safeAudioInit();
+                e.stopPropagation();
                 const inputVal = document.getElementById('player-name-input').value.trim();
                 gameState.playerName = inputVal.length > 0 ? inputVal : "Joueur 1";
                 document.getElementById('hud-player-name').textContent = gameState.playerName;
                 resetGame(); startGameWithLock();
             });
 
-            document.getElementById('btn-resume-game').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); startGameWithLock(); });
-            document.getElementById('btn-pause-resume').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); startGameWithLock(); });
+            document.getElementById('btn-resume-game').addEventListener('click', (e) => { e.stopPropagation(); startGameWithLock(); });
+            document.getElementById('btn-pause-resume').addEventListener('click', (e) => { e.stopPropagation(); startGameWithLock(); });
 
-            document.getElementById('btn-open-options').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); optionsModal.classList.remove('hidden'); });
-            document.getElementById('btn-pause-options').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); optionsModal.classList.remove('hidden'); });
-            document.getElementById('btn-close-options').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); optionsModal.classList.add('hidden'); });
+            document.getElementById('btn-open-options').addEventListener('click', (e) => { e.stopPropagation(); optionsModal.classList.remove('hidden'); });
+            document.getElementById('btn-pause-options').addEventListener('click', (e) => { e.stopPropagation(); optionsModal.classList.remove('hidden'); });
+            document.getElementById('btn-close-options').addEventListener('click', (e) => { e.stopPropagation(); optionsModal.classList.add('hidden'); });
 
             document.getElementById('btn-pause-main-menu').addEventListener('click', (e) => {
-                e.preventDefault(); e.stopPropagation(); pauseMenu.classList.add('hidden'); mainMenu.classList.remove('hidden');
+                e.stopPropagation(); pauseMenu.classList.add('hidden'); mainMenu.classList.remove('hidden');
                 document.getElementById('btn-resume-game').classList.remove('hidden');
             });
             document.getElementById('gameover-main-menu-btn').addEventListener('click', (e) => {
-                e.preventDefault(); e.stopPropagation(); document.getElementById('gameover-screen').classList.add('hidden'); mainMenu.classList.remove('hidden');
+                e.stopPropagation(); document.getElementById('gameover-screen').classList.add('hidden'); mainMenu.classList.remove('hidden');
             });
             document.getElementById('victory-main-menu-btn').addEventListener('click', (e) => {
-                e.preventDefault(); e.stopPropagation(); document.getElementById('victory-screen').classList.add('hidden'); mainMenu.classList.remove('hidden');
+                e.stopPropagation(); document.getElementById('victory-screen').classList.add('hidden'); mainMenu.classList.remove('hidden');
             });
 
-            document.getElementById('restart-btn').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); resetGame(); startGameWithLock(); });
-            document.getElementById('victory-btn').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); resetGame(); startGameWithLock(); });
+            document.getElementById('restart-btn').addEventListener('click', (e) => { e.stopPropagation(); resetGame(); startGameWithLock(); });
+            document.getElementById('victory-btn').addEventListener('click', (e) => { e.stopPropagation(); resetGame(); startGameWithLock(); });
 
-            document.getElementById('option-sound-toggle').addEventListener('change', (e) => { gameState.soundEnabled = e.target.checked; if (gameState.soundEnabled) safeAudioInit(); });
+            document.getElementById('option-sound-toggle').addEventListener('change', (e) => { gameState.soundEnabled = e.target.checked; if (gameState.soundEnabled) audio.init(); });
             document.getElementById('option-sensitivity').addEventListener('input', (e) => {
                 gameState.mouseSensitivity = parseFloat(e.target.value) * 0.001;
                 document.getElementById('sensitivity-value').textContent = e.target.value;
